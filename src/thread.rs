@@ -26,13 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::collections::VecDeque;
 use std::net::TcpStream;
-use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::time::Duration;
 use bincode::ErrorKind;
 use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::network_types::Command as NetCommand;
+
+const MAX_BUFFER: usize = 32;
 
 pub enum Command {
     Connect {
@@ -42,17 +47,20 @@ pub enum Command {
     Terminate
 }
 
+type WorkerChannel = Sender<Result<NetCommand, String>>;
+
 struct Worker {
     stream: TcpStream,
-    sink: ExtEventSink
+    flag: Arc<AtomicBool>,
+    channel: WorkerChannel
 }
 
 impl Worker {
-    pub fn new(stream: TcpStream, sink: ExtEventSink) -> Worker {
-        sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
+    pub fn new(stream: TcpStream, channel: WorkerChannel, flag: Arc<AtomicBool>) -> Worker {
         Worker {
             stream,
-            sink
+            channel,
+            flag
         }
     }
 
@@ -77,33 +85,47 @@ impl Worker {
         }
     }
 
-    pub fn read_command(&mut self) {
+    pub fn read_command(&mut self) -> bool {
         match self.try_read_command() {
             Ok(v) => {
                 if let Some(v) = v {
-                    self.sink.submit_command(NETWORK_COMMAND, v, Target::Auto).unwrap();
+                    self.channel.send(Ok(v)).unwrap();
+                    return false
                 }
             },
             Err(e) => {
-                self.sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+                self.channel.send(Err(e)).unwrap();
+                return true
+            }
+        }
+        false
+    }
+
+    pub fn run(&mut self) {
+        loop {
+            if self.read_command() || self.flag.load(Ordering::Relaxed) {
+                break
             }
         }
     }
 }
 
 pub struct NetworkThread {
-    channel: Receiver<Command>
+    channel: Receiver<Command>,
+    flag: Arc<AtomicBool>
 }
 
 impl NetworkThread {
     pub fn new(channel: Receiver<Command>) -> NetworkThread {
         NetworkThread {
-            channel
+            channel,
+            flag: Arc::new(AtomicBool::new(false))
         }
     }
 
     pub fn run(&self) {
-        let mut worker = None;
+        let mut vec = VecDeque::with_capacity(MAX_BUFFER);
+        let mut network = None;
         loop {
             let cmd = match self.channel.try_recv() {
                 Ok(v) => Some(v),
@@ -117,7 +139,7 @@ impl NetworkThread {
             if let Some(cmd) = cmd {
                 match cmd {
                     Command::Connect { ip, sink } => {
-                        if worker.is_some() {
+                        if network.is_some() {
                             continue;
                         }
                         let socket1 = match Worker::connect(ip) {
@@ -127,15 +149,42 @@ impl NetworkThread {
                                 continue;
                             }
                         };
-                        worker = Some(Worker::new(socket1, sink));
+                        sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
+                        let (sender, receiver) = channel();
+                        let bullshitrust = self.flag.clone();
+                        let handle = std::thread::spawn(|| {
+                            let mut worker = Worker::new(socket1, sender, bullshitrust);
+                            worker.run();
+                        });
+                        network = Some((receiver, sink, handle));
                     },
                     Command::Terminate => break
                 }
             }
-            if let Some(worker) = &mut worker {
-                worker.read_command();
+            if let Some((channel, sink, _)) = &network {
+                let mut flag = false;
+                while let Ok(msg) = channel.try_recv() {
+                    match msg {
+                        Ok(v) => vec.push_back(v),
+                        Err(e) => {
+                            sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+                            flag = true;
+                            break;
+                        }
+                    }
+                }
+                if flag {
+                    break;
+                }
+                if let Some(net) = vec.pop_front() {
+                    sink.submit_command(NETWORK_COMMAND, net, Target::Auto).unwrap();
+                }
             }
             std::thread::sleep(Duration::from_millis(50));
+        }
+        if let Some((_, _, handle)) = network {
+            self.flag.store(true, Ordering::Relaxed);
+            handle.join().unwrap();
         }
     }
 }
