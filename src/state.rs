@@ -157,8 +157,9 @@ impl TreeNode for Span {
         &self.children[index]
     }
 
-    fn for_child_mut(&mut self, _: usize, _: impl FnMut(&mut Self, usize)) {
-        //Elements of the tree should never be mutated
+    fn for_child_mut(&mut self, index: usize, mut func: impl FnMut(&mut Self, usize)) {
+        let data = &mut self.children[index];
+        func(data, index);
     }
 }
 
