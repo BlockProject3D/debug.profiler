@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::fmt::{Display, Formatter, Write};
 use druid::Data;
 use serde::{Serialize, Deserialize};
 
@@ -36,6 +37,24 @@ pub enum Value {
     Unsigned(u64),
     String(String),
     Bool(bool)
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Float(v) => write!(f, "{}", v),
+            Value::Signed(v) => write!(f, "{}", v),
+            Value::Unsigned(v) => write!(f, "{}", v),
+            Value::String(v) => write!(f, "\"{}\"", v),
+            Value::Bool(v) => {
+                if *v {
+                    f.write_str("On")
+                } else {
+                    f.write_str("Off")
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
@@ -55,6 +74,19 @@ pub struct Metadata {
     pub module_path: Option<String>, //The module path (including crate name)
     pub file: Option<String>, //The file path
     pub line: Option<u32> //The line number in the file
+}
+
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata {
+            name: "root".into(),
+            target: "".into(),
+            level: Level::Info,
+            file: None,
+            module_path: None,
+            line: None
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

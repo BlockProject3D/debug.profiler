@@ -26,16 +26,50 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::Selector;
-use crate::network_types::Command as NetCommand;
+use druid::{BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, PaintCtx, Size, UpdateCtx, Widget, WidgetPod};
+use druid::widget::Label;
+use crate::command::SELECT_NODE;
+use crate::state::Span;
 
-pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.error");
-// The bool here is useless, it's only here to comply with druid design stupidities:
-// druid REQUIRES a payload to be given even if there are NO payloads when using ExtEventSink!
-pub const CONNECTION_SUCCESS: Selector<bool> = Selector::new("network.connect.success");
-pub const NETWORK_ERROR: Selector<String> = Selector::new("network.error");
-pub const NETWORK_COMMAND: Selector<NetCommand> = Selector::new("network.command");
+pub struct TreeNodeWidget {
+    label: WidgetPod<Span, Label<Span>>
+}
 
-pub const CONNECT: Selector = Selector::new("network.connect");
+impl TreeNodeWidget {
+    pub fn new() -> TreeNodeWidget {
+        TreeNodeWidget {
+            label: WidgetPod::new(Label::dynamic(|data: &Span, _| data.metadata.name.clone()))
+        }
+    }
+}
 
-pub const SELECT_NODE: Selector<u64> = Selector::new("node.select");
+impl Widget<Span> for TreeNodeWidget {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut Span, env: &Env) {
+        match event {
+            Event::MouseUp(v) => {
+                if v.button == MouseButton::Left {
+                    ctx.submit_command(SELECT_NODE.with(data.id))
+                }
+                return;
+            },
+            _ => ()
+        }
+        self.label.event(ctx, event, data, env)
+    }
+
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &Span, env: &Env) {
+        self.label.lifecycle(ctx, event, data, env)
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx, _: &Span, data: &Span, env: &Env) {
+        self.label.update(ctx, data, env)
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &Span, env: &Env) -> Size {
+        self.label.layout(ctx, bc, data, env)
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &Span, env: &Env) {
+        self.label.paint(ctx, data, env)
+    }
+}

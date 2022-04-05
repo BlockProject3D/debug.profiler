@@ -26,12 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
-use crate::network_types::{Level, Metadata, Value};
+use crate::network_types::{Metadata, Value};
 
 #[derive(Clone, Data, Debug, Lens)]
 pub struct Span {
@@ -41,23 +40,10 @@ pub struct Span {
     children: Vector<Span>
 }
 
-impl Display for Span {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.metadata.name)
-    }
-}
-
 impl Span {
     pub fn new() -> Span {
         Span {
-            metadata: Arc::new(Metadata {
-                name: "root".into(),
-                target: "".into(),
-                level: Level::Info,
-                file: None,
-                module_path: None,
-                line: None
-            }),
+            metadata: Arc::new(Metadata::default()),
             id: 0,
             expanded: true,
             children: Vector::new()
@@ -163,7 +149,7 @@ impl TreeNode for Span {
     }
 }
 
-#[derive(Clone, Data)]
+#[derive(Default, Clone, Data)]
 pub struct SpanLogEntry {
     pub duration: f64, //The last duration in seconds of this span
     pub values: HashMap<String, Value>, //All values that have been set as part of this span
@@ -172,15 +158,11 @@ pub struct SpanLogEntry {
 
 impl SpanLogEntry {
     pub fn new() -> SpanLogEntry {
-        SpanLogEntry {
-            duration: 0.0,
-            values: HashMap::new(),
-            events: Vector::new()
-        }
+        SpanLogEntry::default()
     }
 }
 
-#[derive(Clone, Data)]
+#[derive(Default, Clone, Data)]
 pub struct SpanData {
     pub active: bool, //Is this span currently entered
     pub dropped: bool,
@@ -195,5 +177,6 @@ pub struct State {
     pub tree_data: HashMap<u64, SpanData>,
     pub connected: bool,
     pub address: String,
-    pub status: String
+    pub status: String,
+    pub selected: u64
 }

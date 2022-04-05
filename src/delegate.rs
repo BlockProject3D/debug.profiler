@@ -31,7 +31,7 @@ use std::sync::mpsc::Sender;
 use druid::{AppDelegate, Command, DelegateCtx, Env, Handled, Target};
 use druid::commands::{CLOSE_WINDOW, QUIT_APP};
 use druid::im::Vector;
-use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
+use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE};
 use crate::state::{Span, SpanData, SpanLogEntry, State};
 use crate::network_types::Command as NetCommand;
 
@@ -127,6 +127,10 @@ impl AppDelegate<State> for Delegate {
         }
         if let Some(err) = cmd.get(CONNECTION_ERROR) {
             state.status = format!("Connection error: {}", err);
+            return Handled::Yes;
+        }
+        if let Some(id) = cmd.get(SELECT_NODE) {
+            state.selected = *id;
             return Handled::Yes;
         }
         if self.networked {

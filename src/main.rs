@@ -38,6 +38,7 @@ mod delegate;
 mod thread;
 mod command;
 mod atomic;
+mod tree_widget;
 
 fn main() -> Result<(), PlatformError> {
     let (sender, receiver) = channel();
