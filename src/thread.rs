@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::net::TcpStream;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
 use bincode::ErrorKind;
 use druid::{ExtEventSink, Target};
@@ -105,29 +105,37 @@ impl NetworkThread {
     pub fn run(&self) {
         let mut worker = None;
         loop {
-            let cmd = match self.channel.recv() {
-                Ok(v) => v,
-                Err(_) => break
-            };
-            match cmd {
-                Command::Connect { ip, sink } => {
-                    if worker.is_some() {
-                        continue;
+            let cmd = match self.channel.try_recv() {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    match e {
+                        TryRecvError::Empty => None,
+                        TryRecvError::Disconnected => break
                     }
-                    let socket1 = match Worker::connect(ip) {
-                        Ok(v) => v,
-                        Err(e) => {
-                            sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
+                }
+            };
+            if let Some(cmd) = cmd {
+                match cmd {
+                    Command::Connect { ip, sink } => {
+                        if worker.is_some() {
                             continue;
                         }
-                    };
-                    worker = Some(Worker::new(socket1, sink));
-                },
-                Command::Terminate => break
+                        let socket1 = match Worker::connect(ip) {
+                            Ok(v) => v,
+                            Err(e) => {
+                                sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
+                                continue;
+                            }
+                        };
+                        worker = Some(Worker::new(socket1, sink));
+                    },
+                    Command::Terminate => break
+                }
             }
             if let Some(worker) = &mut worker {
                 worker.read_command();
             }
+            std::thread::sleep(Duration::from_millis(50));
         }
     }
 }
