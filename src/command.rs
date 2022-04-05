@@ -34,7 +34,7 @@ pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.er
 // druid REQUIRES a payload to be given even if there are NO payloads when using ExtEventSink!
 pub const CONNECTION_SUCCESS: Selector<bool> = Selector::new("network.connect.success");
 pub const NETWORK_ERROR: Selector<String> = Selector::new("network.error");
-pub const NETWORK_COMMAND: Selector<NetCommand> = Selector::new("network.command");
+pub const NETWORK_COMMAND: Selector<Box<[NetCommand]>> = Selector::new("network.command");
 
 pub const CONNECT: Selector = Selector::new("network.connect");
 

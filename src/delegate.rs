@@ -135,7 +135,9 @@ impl AppDelegate<State> for Delegate {
         }
         if self.networked {
             if let Some(msg) = cmd.get(NETWORK_COMMAND) {
-                self.handle_net_command(msg, state);
+                for v in msg.iter() {
+                    self.handle_net_command(v, state);
+                }
                 return Handled::Yes;
             }
             if let Some(err) = cmd.get(NETWORK_ERROR) {

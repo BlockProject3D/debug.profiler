@@ -30,14 +30,18 @@ use std::collections::VecDeque;
 use std::net::TcpStream;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
 use bincode::ErrorKind;
+use crossbeam_channel::bounded;
 use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::network_types::Command as NetCommand;
 
-const MAX_BUFFER: usize = 32;
+const MAX_BUFFER: usize = 256;
+const MAX_SUB_BUFFER: usize = 128;
+// Only allow fast forwarding to 128 commands because druid is
+// an atrociously slow library.
 
 pub enum Command {
     Connect {
@@ -47,7 +51,7 @@ pub enum Command {
     Terminate
 }
 
-type WorkerChannel = Sender<Result<NetCommand, String>>;
+type WorkerChannel = crossbeam_channel::Sender<Result<NetCommand, String>>;
 
 struct Worker {
     stream: TcpStream,
@@ -150,7 +154,7 @@ impl NetworkThread {
                             }
                         };
                         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
-                        let (sender, receiver) = channel();
+                        let (sender, receiver) = bounded(MAX_BUFFER);
                         let bullshitrust = self.flag.clone();
                         let handle = std::thread::spawn(|| {
                             let mut worker = Worker::new(socket1, sender, bullshitrust);
@@ -176,13 +180,22 @@ impl NetworkThread {
                 if flag {
                     break;
                 }
-                if let Some(net) = vec.pop_front() {
-                    sink.submit_command(NETWORK_COMMAND, net, Target::Auto).unwrap();
+                if vec.len() >= 1 {
+                    let mut fast_forward = Vec::with_capacity(MAX_SUB_BUFFER);
+                    while fast_forward.len() < MAX_SUB_BUFFER {
+                        if let Some(net) = vec.pop_front() {
+                            fast_forward.push(net);
+                        } else {
+                            break;
+                        }
+                    }
+                    sink.submit_command(NETWORK_COMMAND, fast_forward.into_boxed_slice(), Target::Auto).unwrap();
                 }
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        if let Some((_, _, handle)) = network {
+        if let Some((channel, _, handle)) = network {
+            while channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
             self.flag.store(true, Ordering::Relaxed);
             handle.join().unwrap();
         }
