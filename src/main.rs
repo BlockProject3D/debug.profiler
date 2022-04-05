@@ -51,7 +51,7 @@ fn main() -> Result<(), PlatformError> {
         .delegate(delegate::Delegate::new(sender))
         .configure_env(theme::overwrite_theme)
         .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
+    let _ = exit_channel.send(thread::Command::Terminate);
     handle.join().unwrap();
     res
 }
