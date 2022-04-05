@@ -28,10 +28,11 @@
 
 use druid::{BoxConstraints, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, MouseButton, PaintCtx, Size, UpdateCtx, Widget, WidgetPod};
 use druid::widget::Label;
+use druid_widget_nursery::Tree;
 use crate::command::SELECT_NODE;
 use crate::state::Span;
 
-pub struct TreeNodeWidget {
+struct TreeNodeWidget {
     label: WidgetPod<Span, Label<Span>>
 }
 
@@ -72,4 +73,8 @@ impl Widget<Span> for TreeNodeWidget {
     fn paint(&mut self, ctx: &mut PaintCtx, data: &Span, env: &Env) {
         self.label.paint(ctx, data, env)
     }
+}
+
+pub fn view_tree() -> impl Widget<Span> {
+    Tree::new(|| TreeNodeWidget::new(), Span::expanded)
 }

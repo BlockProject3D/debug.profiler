@@ -26,21 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Env, EventCtx, FontDescriptor, FontFamily, FontWeight, UnitPoint, Widget, WidgetExt};
-use druid::widget::{Align, Button, Flex, Label, List, Padding, TextBox, ViewSwitcher};
-use druid_widget_nursery::Tree;
-use crate::command::CONNECT;
+use druid::{Color, FontDescriptor, FontFamily, FontWeight, Widget, WidgetExt};
+use druid::widget::{Flex, Label, ViewSwitcher};
 use crate::network_types::Level;
-use crate::state::{Span, State};
-use crate::tree_widget::TreeNodeWidget;
-
-fn handle_connect(ctx: &mut EventCtx, _: &mut State, _: &Env) {
-    ctx.submit_command(CONNECT);
-}
-
-fn build_tree() -> impl Widget<Span> {
-    Tree::new(|| TreeNodeWidget::new(), Span::expanded)
-}
+use crate::state::State;
 
 pub fn view_active() -> impl Widget<State> {
     ViewSwitcher::new(|data: &State, _| {
@@ -102,35 +91,5 @@ pub fn view_active() -> impl Widget<State> {
                 .with_spacer(10.0)
                 .with_child(values.border(Color::BLACK, 0.5))
         )
-    })
-}
-
-fn build_view() -> impl Widget<State> {
-    Flex::column()
-        .with_child(Label::dynamic(|data: &State, _| format!("Selected node: {}", data.selected)))
-        .with_child(Padding::new(20.0, view_active()))
-        .scroll()
-        .center()
-        .expand()
-        .border(Color::BLACK, 0.5)
-}
-
-pub fn ui_builder() -> impl Widget<State> {
-    ViewSwitcher::new(|data: &State, _| data.connected, |connected, _, _| {
-        let flex = match connected {
-            true => Flex::row()
-                    .with_child(build_tree().lens(State::tree).border(Color::BLACK, 0.5))
-                    .with_spacer(5.0)
-                    .with_flex_child(build_view(), 90.0),
-            false => Flex::column()
-                .with_child(Label::new("Please enter the ip address of the application to debug:"))
-                .with_spacer(15.0)
-                .with_child(TextBox::new().lens(State::address))
-                .with_spacer(5.0)
-                .with_child(Button::new("Connect").on_click(handle_connect).padding(5.0))
-        };
-        Box::new(Padding::new(10.0, Flex::column()
-            .with_flex_child(Align::centered(flex.expand()), 90.0)
-            .with_flex_child(Align::vertical(UnitPoint::BOTTOM, Label::dynamic(|data: &State, _| data.status.clone())), 5.0)))
     })
 }

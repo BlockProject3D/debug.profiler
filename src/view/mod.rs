@@ -26,55 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use crate::atomic::motherfuckingrustalwaysmakingthingsmorecomplicatedthanissupposedtobe::{Atomic, AtomicPrimitive};
-
-mod motherfuckingrustalwaysmakingthingsmorecomplicatedthanissupposedtobe {
-    pub trait Atomic {
-        type Inner;
-        fn new(val: Self::Inner) -> Self;
-        fn load(&self) -> Self::Inner;
-        fn store(&self, val: Self::Inner);
-    }
-
-    pub trait AtomicPrimitive {
-        type Atomic: Atomic<Inner = Self>;
-    }
-}
-
-#[derive(Debug)]
-pub struct AtomicCell<T: AtomicPrimitive>(T::Atomic);
-
-impl<T: AtomicPrimitive> AtomicCell<T> {
-    pub fn new(val: T) -> AtomicCell<T> {
-        AtomicCell(T::Atomic::new(val))
-    }
-
-    pub fn get(&self) -> T {
-        self.0.load()
-    }
-
-    pub fn store(&self, val: T) {
-        self.0.store(val)
-    }
-}
-
-impl Atomic for AtomicBool {
-    type Inner = bool;
-
-    fn new(val: Self::Inner) -> Self {
-        AtomicBool::new(val)
-    }
-
-    fn load(&self) -> Self::Inner {
-        self.load(Ordering::Acquire)
-    }
-
-    fn store(&self, val: Self::Inner) {
-        self.store(val, Ordering::Release);
-    }
-}
-
-impl AtomicPrimitive for bool {
-    type Atomic = AtomicBool;
-}
+pub mod main_window;
+mod tree;
+mod active;
+mod main;

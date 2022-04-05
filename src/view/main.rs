@@ -26,32 +26,17 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use view::main_window;
-use crate::thread::NetworkThread;
+use druid::{Color, Widget, WidgetExt};
+use druid::widget::{Flex, Label, Padding};
+use crate::state::State;
+use crate::view::active::view_active;
 
-mod network_types;
-mod state;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod view;
-
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::main_window());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
-    handle.join().unwrap();
-    res
+pub fn view_main() -> impl Widget<State> {
+    Flex::column()
+        .with_child(Label::dynamic(|data: &State, _| format!("Selected node: {}", data.selected)))
+        .with_child(Padding::new(20.0, view_active()))
+        .scroll()
+        .center()
+        .expand()
+        .border(Color::BLACK, 0.5)
 }
