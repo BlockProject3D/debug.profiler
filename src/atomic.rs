@@ -26,32 +26,55 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use crate::thread::NetworkThread;
+use std::sync::atomic::{AtomicBool, Ordering};
+use crate::atomic::motherfuckingrustalwaysmakingthingsmorecomplicatedthanissupposedtobe::{Atomic, AtomicPrimitive};
 
-mod network_types;
-mod state;
-mod main_window;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod atomic;
+mod motherfuckingrustalwaysmakingthingsmorecomplicatedthanissupposedtobe {
+    pub trait Atomic {
+        type Inner;
+        fn new(val: Self::Inner) -> Self;
+        fn load(&self) -> Self::Inner;
+        fn store(&self, val: Self::Inner);
+    }
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::ui_builder());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
-    handle.join().unwrap();
-    res
+    pub trait AtomicPrimitive {
+        type Atomic: Atomic<Inner = Self>;
+    }
+}
+
+#[derive(Debug)]
+pub struct AtomicCell<T: AtomicPrimitive>(T::Atomic);
+
+impl<T: AtomicPrimitive> AtomicCell<T> {
+    pub fn new(val: T) -> AtomicCell<T> {
+        AtomicCell(T::Atomic::new(val))
+    }
+
+    pub fn get(&self) -> T {
+        self.0.load()
+    }
+
+    pub fn store(&self, val: T) {
+        self.0.store(val)
+    }
+}
+
+impl Atomic for AtomicBool {
+    type Inner = bool;
+
+    fn new(val: Self::Inner) -> Self {
+        AtomicBool::new(val)
+    }
+
+    fn load(&self) -> Self::Inner {
+        self.load(Ordering::Acquire)
+    }
+
+    fn store(&self, val: Self::Inner) {
+        self.store(val, Ordering::Release);
+    }
+}
+
+impl AtomicPrimitive for bool {
+    type Atomic = AtomicBool;
 }

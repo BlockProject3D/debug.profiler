@@ -26,32 +26,75 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use crate::thread::NetworkThread;
+use druid::Data;
+use serde::{Serialize, Deserialize};
 
-mod network_types;
-mod state;
-mod main_window;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod atomic;
+#[derive(Data, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Value {
+    Float(f64),
+    Signed(i64),
+    Unsigned(u64),
+    String(String),
+    Bool(bool)
+}
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::ui_builder());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
-    handle.join().unwrap();
-    res
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
+pub enum Level {
+    Trace,
+    Debug,
+    Info,
+    Warning,
+    Error
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Metadata {
+    pub name: String, //The name of the span/event
+    pub target: String, //The target of the span/event (usually this contains module path)
+    pub level: Level, //The log level of the span/event
+    pub module_path: Option<String>, //The module path (including crate name)
+    pub file: Option<String>, //The file path
+    pub line: Option<u32> //The line number in the file
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum Command {
+    SpanAlloc {
+        id: u64,
+        metadata: Metadata
+    },
+
+    SpanInit {
+        span: u64,
+        parent: Option<u64>, //None must mean that span is at root
+        value_set: Vec<(String, Value)>
+    },
+
+    SpanFollows {
+        span: u64,
+        follows: u64
+    },
+
+    SpanValues {
+        span: u64,
+        value_set: Vec<(String, Value)>
+    },
+
+    Event {
+        span: Option<u64>,
+        metadata: Metadata,
+        time: i64,
+        value_set: Vec<(String, Value)>
+    },
+
+    SpanEnter(u64),
+
+    SpanExit {
+        span: u64,
+        duration: f64
+    },
+
+    SpanFree(u64),
+
+    Terminate
 }

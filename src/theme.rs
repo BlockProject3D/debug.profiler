@@ -26,32 +26,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use crate::thread::NetworkThread;
+use druid::{Color, Env, Key};
+use druid::theme::{BACKGROUND_DARK, BACKGROUND_LIGHT, BORDER_DARK, BORDER_LIGHT, BUTTON_DARK, BUTTON_LIGHT, CURSOR_COLOR, DISABLED_BUTTON_DARK, DISABLED_BUTTON_LIGHT, DISABLED_FOREGROUND_DARK, DISABLED_FOREGROUND_LIGHT, DISABLED_TEXT_COLOR, FOREGROUND_DARK, FOREGROUND_LIGHT, PLACEHOLDER_COLOR, PRIMARY_DARK, PRIMARY_LIGHT, SCROLLBAR_BORDER_COLOR, SCROLLBAR_COLOR, SELECTED_TEXT_BACKGROUND_COLOR, SELECTED_TEXT_INACTIVE_BACKGROUND_COLOR, SELECTION_TEXT_COLOR, TEXT_COLOR, WINDOW_BACKGROUND_COLOR};
+use crate::state::State;
 
-mod network_types;
-mod state;
-mod main_window;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod atomic;
+fn invert_color(key: &Key<Color>, env: &mut Env) {
+    let color = env.get(key);
+    let (r, g, b, a) = color.as_rgba8();
+    // The slower it gets the better it is!
+    // druid asks for clone well give it worse performance!!
+    env.set(key.clone(), Color::rgba8(0xFF - r, 0xFF - g, 0xFF - b, a));
+}
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::ui_builder());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
-    handle.join().unwrap();
-    res
+const COLOR_KEYS: &[Key<Color>] = &[WINDOW_BACKGROUND_COLOR, TEXT_COLOR, DISABLED_TEXT_COLOR,
+    PLACEHOLDER_COLOR, PRIMARY_LIGHT, PRIMARY_DARK, BACKGROUND_LIGHT, BACKGROUND_DARK,
+    FOREGROUND_LIGHT, FOREGROUND_DARK, DISABLED_FOREGROUND_LIGHT, DISABLED_FOREGROUND_DARK,
+    BUTTON_DARK, BUTTON_LIGHT, DISABLED_BUTTON_DARK, DISABLED_BUTTON_LIGHT, BORDER_DARK,
+    BORDER_LIGHT, SELECTED_TEXT_BACKGROUND_COLOR, SELECTED_TEXT_INACTIVE_BACKGROUND_COLOR,
+    SELECTION_TEXT_COLOR, CURSOR_COLOR, SCROLLBAR_COLOR, SCROLLBAR_BORDER_COLOR
+];
+
+pub fn overwrite_theme(env: &mut Env, _: &State) {
+    for key in COLOR_KEYS {
+        invert_color(key, env);
+    }
+    env.set(WINDOW_BACKGROUND_COLOR, Color::rgb8(240, 240, 240));
 }

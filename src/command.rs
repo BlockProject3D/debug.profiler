@@ -26,32 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use crate::thread::NetworkThread;
+use druid::Selector;
+use crate::network_types::Command as NetCommand;
 
-mod network_types;
-mod state;
-mod main_window;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod atomic;
+pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.error");
+// The bool here is useless, it's only here to comply with druid design stupidities:
+// druid REQUIRES a payload to be given even if there are NO payloads when using ExtEventSink!
+pub const CONNECTION_SUCCESS: Selector<bool> = Selector::new("network.connect.success");
+pub const NETWORK_ERROR: Selector<String> = Selector::new("network.error");
+pub const NETWORK_COMMAND: Selector<NetCommand> = Selector::new("network.command");
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::ui_builder());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    exit_channel.send(thread::Command::Terminate).unwrap();
-    handle.join().unwrap();
-    res
-}
+pub const CONNECT: Selector = Selector::new("network.connect");
