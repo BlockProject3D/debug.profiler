@@ -109,19 +109,19 @@ fn build_view() -> impl Widget<State> {
     Flex::column()
         .with_child(Label::dynamic(|data: &State, _| format!("Selected node: {}", data.selected)))
         .with_child(Padding::new(20.0, view_active()))
-        .expand_width()
+        .scroll()
+        .center()
+        .expand()
         .border(Color::BLACK, 0.5)
 }
 
 pub fn ui_builder() -> impl Widget<State> {
     ViewSwitcher::new(|data: &State, _| data.connected, |connected, _, _| {
         let flex = match connected {
-            true => Flex::column()
-                .with_child(Flex::row()
+            true => Flex::row()
                     .with_child(build_tree().lens(State::tree).border(Color::BLACK, 0.5))
                     .with_spacer(5.0)
-                    .with_flex_child(build_view(), 50.0)
-                    .expand_width()),
+                    .with_flex_child(build_view(), 90.0),
             false => Flex::column()
                 .with_child(Label::new("Please enter the ip address of the application to debug:"))
                 .with_spacer(15.0)
@@ -130,7 +130,7 @@ pub fn ui_builder() -> impl Widget<State> {
                 .with_child(Button::new("Connect").on_click(handle_connect).padding(5.0))
         };
         Box::new(Padding::new(10.0, Flex::column()
-            .with_flex_child(Align::centered(flex), 90.0)
+            .with_flex_child(Align::centered(flex.expand()), 90.0)
             .with_flex_child(Align::vertical(UnitPoint::BOTTOM, Label::dynamic(|data: &State, _| data.status.clone())), 5.0)))
     })
 }
