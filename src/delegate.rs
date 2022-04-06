@@ -29,7 +29,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
-use druid::{AppDelegate, Command, DelegateCtx, Env, Handled, Target, WindowDesc, WindowId};
+use druid::{AppDelegate, Command, Data, DelegateCtx, Env, Handled, Target, Widget, WindowDesc, WindowId};
 use druid::commands::{CLOSE_WINDOW, QUIT_APP};
 use druid::im::Vector;
 use time::macros::format_description;
@@ -49,7 +49,8 @@ enum WindowHandle {
 pub struct Delegate {
     channel: Sender<crate::thread::Command>,
     networked: bool,
-    hack_window_handles: HashMap<WindowId, WindowHandle>
+    hack_window_handles: HashMap<WindowId, WindowHandle>,
+    window_count: usize
 }
 
 fn extract_target_module(record: &Metadata) -> (&str, Option<&str>) {
@@ -67,7 +68,8 @@ impl Delegate {
         Delegate {
             channel,
             networked: false,
-            hack_window_handles: HashMap::new()
+            hack_window_handles: HashMap::new(),
+            window_count: 1
         }
     }
 
@@ -159,11 +161,23 @@ impl Delegate {
             }
         }
     }
+
+    fn add_window<T: Data>(&mut self, ctx: &mut DelegateCtx, handle: WindowHandle, view: impl Widget<T> + 'static) {
+        let desc = WindowDesc::new(view);
+        self.hack_window_handles.insert(desc.id, handle);
+        self.window_count += 1;
+        ctx.new_window(desc);
+    }
+
+    fn close_window(&mut self) -> bool {
+        self.window_count -= 1;
+        self.window_count == 0
+    }
 }
 
 impl AppDelegate<State> for Delegate {
     fn command(&mut self, ctx: &mut DelegateCtx, _: Target, cmd: &Command, state: &mut State, _: &Env) -> Handled {
-        if cmd.is(CLOSE_WINDOW) && self.hack_window_handles.len() == 0 {
+        if cmd.is(CLOSE_WINDOW) && self.close_window() {
             ctx.submit_command(QUIT_APP);
             return Handled::Yes;
         } else if cmd.is(CONNECT) {
@@ -191,9 +205,7 @@ impl AppDelegate<State> for Delegate {
                     events: events.clone(),
                     selected_event: event.clone()
                 });
-                let desc = WindowDesc::new(events_window(handle));
-                self.hack_window_handles.insert(desc.id, WindowHandle::Event(handle));
-                ctx.new_window(desc);
+                self.add_window(ctx, WindowHandle::Event(handle), events_window(handle));
             } else {
                 state.status = "No events are available for this node at this time.".into()
             }
@@ -204,9 +216,7 @@ impl AppDelegate<State> for Delegate {
                     history: history.clone(),
                     selected_history: entry.clone()
                 });
-                let desc = WindowDesc::new(history_window(handle));
-                self.hack_window_handles.insert(desc.id, WindowHandle::History(handle));
-                ctx.new_window(desc);
+                self.add_window(ctx, WindowHandle::History(handle), history_window(handle));
             } else {
                 state.status = "No history is available for this node at this time.".into()
             }
