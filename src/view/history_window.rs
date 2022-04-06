@@ -32,7 +32,7 @@ use druid_widget_nursery::ListSelect;
 use crate::command::NODE_OPEN_EVENTS;
 use crate::state::{State, StateHistory};
 
-pub fn view_active() -> impl Widget<StateHistory> {
+fn view_active() -> impl Widget<StateHistory> {
     let duration = ViewSwitcher::new(|data: &StateHistory, _| data.selected_history.duration,
                                      |duration, _, _| Box::new(Label::new(format!("{}s", duration))));
     let values = ViewSwitcher::new(

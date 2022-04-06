@@ -48,7 +48,6 @@ fn events_view() -> impl Widget<StateEvents> {
     let values = super::common::build_box("Values")
         .with_child(values)
         .scroll();
-
     Flex::column()
         .with_flex_child(list.expand().border(Color::BLACK, 0.5), 50.0)
         .with_flex_child(values.center().expand().border(Color::BLACK, 0.5), 50.0)
