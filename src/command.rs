@@ -30,7 +30,7 @@ use std::sync::Arc;
 use druid::im::Vector;
 use druid::Selector;
 use crate::network_types::Command as NetCommand;
-use crate::state::Event;
+use crate::state::{Event, SpanLogEntry};
 
 pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.error");
 // The bool here is useless, it's only here to comply with druid design stupidities:
@@ -44,3 +44,4 @@ pub const CONNECT: Selector = Selector::new("network.connect");
 pub const SELECT_NODE: Selector<u64> = Selector::new("node.select");
 
 pub const NODE_OPEN_EVENTS: Selector<Vector<Arc<Event>>> = Selector::new("node.open.events");
+pub const NODE_OPEN_HISTORY: Selector<Vector<SpanLogEntry>> = Selector::new("node.open.history");

@@ -43,9 +43,7 @@ fn events_view() -> impl Widget<StateEvents> {
         Box::new(flex)
     });
 
-    let font = FontDescriptor::new(FontFamily::SYSTEM_UI)
-        .with_weight(FontWeight::BOLD)
-        .with_size(20.0);
+    let font = super::theme::bold_font();
 
     let values = Flex::column()
         .with_child(Label::new("Values").with_font(font.clone()))

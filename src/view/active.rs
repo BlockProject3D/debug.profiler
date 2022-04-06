@@ -28,7 +28,7 @@
 
 use druid::{Color, FontDescriptor, FontFamily, FontWeight, Widget, WidgetExt};
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
-use crate::command::NODE_OPEN_EVENTS;
+use crate::command::{NODE_OPEN_EVENTS, NODE_OPEN_HISTORY};
 use crate::network_types::Level;
 use crate::state::State;
 
@@ -88,9 +88,7 @@ pub fn view_active() -> impl Widget<State> {
         Box::new(flex)
     });
 
-    let font = FontDescriptor::new(FontFamily::SYSTEM_UI)
-        .with_weight(FontWeight::BOLD)
-        .with_size(20.0);
+    let font = super::theme::bold_font();
 
     let basic = Flex::column()
         .with_child(Label::new("Basic").with_font(font.clone()))
@@ -128,6 +126,10 @@ pub fn view_active() -> impl Widget<State> {
         .with_spacer(5.0)
         .with_child(
             Button::new("View history")
+                .on_click(|ctx, data: &mut State, _| {
+                    let history = data.tree_data.get(&data.selected).unwrap().history.clone();
+                    ctx.submit_command(NODE_OPEN_HISTORY.with(history));
+                })
         );
     Flex::column()
         .with_child(basic.border(Color::BLACK, 0.5))

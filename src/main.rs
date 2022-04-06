@@ -28,12 +28,11 @@
 
 use std::sync::mpsc::channel;
 use druid::{AppLauncher, PlatformError, WindowDesc};
-use view::main_window;
+use view::{main_window, theme};
 use crate::thread::NetworkThread;
 
 mod network_types;
 mod state;
-mod theme;
 mod delegate;
 mod thread;
 mod command;

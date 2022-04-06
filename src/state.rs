@@ -188,7 +188,7 @@ pub struct StateEvents {
 //The state for a history window.
 #[derive(Clone, Data, Lens)]
 pub struct StateHistory {
-    pub selected_history: usize,
+    pub selected_history: SpanLogEntry,
     pub history: Vector<SpanLogEntry>
 }
 

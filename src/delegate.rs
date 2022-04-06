@@ -35,10 +35,11 @@ use druid::im::Vector;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
-use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, NODE_OPEN_EVENTS, SELECT_NODE};
-use crate::state::{Event, Span, SpanData, SpanLogEntry, State, StateEvents};
+use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, NODE_OPEN_EVENTS, NODE_OPEN_HISTORY, SELECT_NODE};
+use crate::state::{Event, Span, SpanData, SpanLogEntry, State, StateEvents, StateHistory};
 use crate::network_types::{Command as NetCommand, Level, Metadata};
 use crate::view::events_window::events_window;
+use crate::view::history_window::history_window;
 
 enum WindowHandle {
     Event(usize),
@@ -195,6 +196,19 @@ impl AppDelegate<State> for Delegate {
                 ctx.new_window(desc);
             } else {
                 state.status = "No events are available for this node at this time.".into()
+            }
+        }
+        if let Some(history) = cmd.get(NODE_OPEN_HISTORY) {
+            if let Some(entry) = history.iter().nth(0) {
+                let handle = state.history_windows.insert(StateHistory {
+                    history: history.clone(),
+                    selected_history: entry.clone()
+                });
+                let desc = WindowDesc::new(history_window(handle));
+                self.hack_window_handles.insert(desc.id, WindowHandle::History(handle));
+                ctx.new_window(desc);
+            } else {
+                state.status = "No history is available for this node at this time.".into()
             }
         }
         if self.networked {
