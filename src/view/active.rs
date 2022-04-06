@@ -27,69 +27,112 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use druid::{Color, FontDescriptor, FontFamily, FontWeight, Widget, WidgetExt};
-use druid::widget::{Flex, Label, ViewSwitcher};
+use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
+use crate::command::NODE_OPEN_EVENTS;
 use crate::network_types::Level;
 use crate::state::State;
 
 pub fn view_active() -> impl Widget<State> {
-    ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).cloned().unwrap_or_default()
-    }, |data, _, _| {
-        let active = match data.active {
+    let active = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.active).unwrap_or_default()
+    }, |active, _, _| {
+        Box::new(match active {
             true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
             false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
-        };
-        let dropped = match data.dropped {
+        })
+    });
+    let dropped = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.dropped).unwrap_or_default()
+    }, |dropped, _, _| {
+        Box::new(match dropped {
             true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
             false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
-        };
-        let level = match data.metadata.level {
+        })
+    });
+    let level = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
+    }, |metadata, _, _| {
+        Box::new(match metadata.level {
             Level::Trace => Label::new("Trace"),
             Level::Debug => Label::new("Debug").with_text_color(Color::rgb8(0, 255, 255)),
             Level::Info => Label::new("Info").with_text_color(Color::rgb8(0, 255, 0)),
             Level::Warning => Label::new("Debug").with_text_color(Color::rgb8(255, 255, 0)),
             Level::Error => Label::new("Debug").with_text_color(Color::rgb8(255, 0, 0))
-        };
-        let font = FontDescriptor::new(FontFamily::SYSTEM_UI)
-            .with_weight(FontWeight::BOLD)
-            .with_size(20.0);
-        let mut basic = Flex::column()
-            .with_child(Label::new("Basic").with_font(font.clone()))
-            .with_spacer(5.0)
-            .with_child(Label::new(data.metadata.name.clone()))
-            .with_child(
-                Flex::row()
-                    .with_child(Label::new("Active: "))
-                    .with_child(active)
-            )
-            .with_child(
-                Flex::row()
-                    .with_child(Label::new("Dropped: "))
-                    .with_child(dropped)
-            )
-            .with_child(
-                Flex::row()
-                    .with_child(Label::new("Level: "))
-                    .with_child(level)
-            )
-            .with_child(Label::new(format!("Duration: {}", data.current.duration)));
-        if let Some(file) = &data.metadata.file {
-            basic.add_child(Label::new(format!("File: {} [{:?}]", file, data.metadata.line)))
+        })
+    });
+    let name = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
+    }, |metadata, _, _| Box::new(Label::new(metadata.name.clone())));
+    let file_module_path = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
+    }, |metadata, _, _| {
+        let mut flex = Flex::column();
+        if let Some(file) = &metadata.file {
+            flex.add_child(Label::new(format!("File: {} [{:?}]", file, metadata.line)))
         }
-        if let Some(module_path) = &data.metadata.module_path {
-            basic.add_child(Label::new(format!("Module path: {}", module_path)))
+        if let Some(module_path) = &metadata.module_path {
+            flex.add_child(Label::new(format!("Module path: {}", module_path)))
         }
-        let mut values = Flex::column()
-            .with_child(Label::new("Values").with_font(font.clone()))
-            .with_spacer(5.0);
-        for (name, value) in &data.current.values {
-            values.add_child(Label::new(format!("{}: {}", name, value)))
+        Box::new(flex)
+    });
+    let duration = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.current.duration).unwrap_or_default()
+    }, |duration, _, _| Box::new(Label::new(format!("Duration: {}s", duration))));
+    let values = ViewSwitcher::new(|data: &State, _| {
+        data.tree_data.get(&data.selected).map(|v| v.current.values.clone()).unwrap_or_default()
+    }, |values, _, _| {
+        let mut flex = Flex::column();
+        for (name, value) in values {
+            flex.add_child(Label::new(format!("{}: {}", name, value)))
         }
-        Box::new(
-            Flex::column()
-                .with_child(basic.border(Color::BLACK, 0.5))
-                .with_spacer(10.0)
-                .with_child(values.border(Color::BLACK, 0.5))
+        Box::new(flex)
+    });
+
+    let font = FontDescriptor::new(FontFamily::SYSTEM_UI)
+        .with_weight(FontWeight::BOLD)
+        .with_size(20.0);
+
+    let basic = Flex::column()
+        .with_child(Label::new("Basic").with_font(font.clone()))
+        .with_spacer(5.0)
+        .with_child(name)
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Active: "))
+                .with_child(active)
         )
-    })
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Dropped: "))
+                .with_child(dropped)
+        )
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Level: "))
+                .with_child(level)
+        )
+        .with_child(duration)
+        .with_child(file_module_path);
+    let values = Flex::column()
+        .with_child(Label::new("Values").with_font(font.clone()))
+        .with_spacer(5.0)
+        .with_child(values);
+    let actions = Flex::row()
+        .with_child(
+            Button::new("View events")
+                .on_click(|ctx, data: &mut State, _| {
+                    let events = data.tree_data.get(&data.selected).unwrap().current.events.clone();
+                    ctx.submit_command(NODE_OPEN_EVENTS.with(events));
+                })
+        )
+        .with_spacer(5.0)
+        .with_child(
+            Button::new("View history")
+        );
+    Flex::column()
+        .with_child(basic.border(Color::BLACK, 0.5))
+        .with_spacer(10.0)
+        .with_child(values.border(Color::BLACK, 0.5))
+        .with_spacer(10.0)
+        .with_child(Padding::new(5.0, actions).border(Color::BLACK, 0.5))
 }

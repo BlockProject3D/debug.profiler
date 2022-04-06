@@ -31,6 +31,7 @@ use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
 use crate::network_types::{Metadata, Value};
+use crate::window_map::WindowMap;
 
 #[derive(Clone, Data, Debug, Lens)]
 pub struct Span {
@@ -149,11 +150,17 @@ impl TreeNode for Span {
     }
 }
 
+#[derive(Clone, Data)]
+pub struct Event {
+    pub msg: String,
+    pub values: Arc<[(String, Value)]>
+}
+
 #[derive(Default, Clone, Data)]
 pub struct SpanLogEntry {
     pub duration: f64, //The last duration in seconds of this span
     pub values: HashMap<String, Value>, //All values that have been set as part of this span
-    pub events: Vector<String> //All events that are in this span
+    pub events: Vector<Arc<Event>>, //All events that are in this span
 }
 
 impl SpanLogEntry {
@@ -171,6 +178,20 @@ pub struct SpanData {
     pub history: Vector<SpanLogEntry> //The history of previously dropped instances of the span
 }
 
+//The state for an events window.
+#[derive(Clone, Data, Lens)]
+pub struct StateEvents {
+    pub selected_event: Arc<Event>,
+    pub events: Vector<Arc<Event>>
+}
+
+//The state for a history window.
+#[derive(Clone, Data, Lens)]
+pub struct StateHistory {
+    pub selected_history: usize,
+    pub history: Vector<SpanLogEntry>
+}
+
 #[derive(Clone, Data, Lens, Default)]
 pub struct State {
     pub tree: Span,
@@ -178,5 +199,7 @@ pub struct State {
     pub connected: bool,
     pub address: String,
     pub status: String,
-    pub selected: u64
+    pub selected: u64,
+    pub event_windows: WindowMap<StateEvents>,
+    pub history_windows: WindowMap<StateHistory>,
 }

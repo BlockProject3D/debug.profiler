@@ -26,33 +26,38 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use view::main_window;
-use crate::thread::NetworkThread;
+use druid::{Color, FontDescriptor, FontFamily, FontWeight, LensExt, Widget, WidgetExt};
+use druid::widget::{Flex, Label, Padding, ViewSwitcher};
+use druid_widget_nursery::ListSelect;
+use crate::state::{State, StateEvents};
 
-mod network_types;
-mod state;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod view;
-mod window_map;
-
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
+fn events_view() -> impl Widget<StateEvents> {
+    let list = ViewSwitcher::new(|data: &StateEvents, _| data.events.clone(), |events, _, _| {
+        Box::new(ListSelect::new(events.iter().map(|v| (v.msg.clone(), v.clone()))).scroll().lens(StateEvents::selected_event))
     });
-    let main_window = WindowDesc::new(main_window::main_window());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+    let values = ViewSwitcher::new(|data: &StateEvents, _| data.selected_event.clone(), |event, _, _| {
+        let mut flex = Flex::column();
+        for (name, value) in event.values.iter() {
+            flex.add_child(Label::new(format!("{}: {}", name, value)))
+        }
+        Box::new(flex)
+    });
+
+    let font = FontDescriptor::new(FontFamily::SYSTEM_UI)
+        .with_weight(FontWeight::BOLD)
+        .with_size(20.0);
+
+    let values = Flex::column()
+        .with_child(Label::new("Values").with_font(font.clone()))
+        .with_spacer(5.0)
+        .with_child(values)
+        .scroll();
+
+    Flex::column()
+        .with_flex_child(list.expand().border(Color::BLACK, 0.5), 50.0)
+        .with_flex_child(values.center().expand().border(Color::BLACK, 0.5), 50.0)
+}
+
+pub fn events_window(window: usize) -> impl Widget<State> {
+    Padding::new(10.0, events_view().lens(State::event_windows.index(window)))
 }

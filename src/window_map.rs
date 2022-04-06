@@ -26,33 +26,62 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use view::main_window;
-use crate::thread::NetworkThread;
+use std::ops::{Index, IndexMut};
+use druid::Data;
+use druid::im::Vector;
 
-mod network_types;
-mod state;
-mod theme;
-mod delegate;
-mod thread;
-mod command;
-mod view;
-mod window_map;
+// This module contains a hacky container to bypass one of the WORST and most stupid API design in
+// im-rs crate: HashMap index function only accepts static references!
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::main_window());
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+#[derive(Data, Clone)]
+pub struct WindowMap<T>(Vector<Option<T>>);
+
+impl<T: Clone> Default for WindowMap<T> {
+    fn default() -> Self {
+        Self(Vector::new())
+    }
+}
+
+impl<T: Clone> Index<usize> for WindowMap<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.0[index].as_ref().unwrap()
+    }
+}
+
+impl<T: Clone> IndexMut<usize> for WindowMap<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.0[index].as_mut().unwrap()
+    }
+}
+
+impl<T: Clone> WindowMap<T> {
+    pub fn insert(&mut self, window: T) -> usize {
+        for (i, v) in self.0.iter_mut().enumerate() {
+            if v.is_none() {
+                *v = Some(window);
+                return i;
+            }
+        }
+        self.0.push_back(Some(window));
+        self.0.len() - 1
+    }
+
+    pub fn remove(&mut self, index: usize) {
+        if index > self.0.len() {
+            return;
+        }
+        let mut flag = true;
+        for i in index..self.0.len() {
+            if self.0[i].is_some() {
+                flag = false;
+            }
+        }
+        if flag { //It is safe to remove the object from the vector.
+            self.0.remove(index);
+        } else { //Removing the object from the vector would cause dangling indices.
+            self.0[index] = None;
+        }
+    }
 }

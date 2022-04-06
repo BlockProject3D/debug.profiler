@@ -30,3 +30,4 @@ pub mod main_window;
 mod tree;
 mod active;
 mod main;
+pub mod events_window;
