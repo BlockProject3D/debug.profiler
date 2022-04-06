@@ -26,73 +26,53 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, FontDescriptor, FontFamily, FontWeight, Widget, WidgetExt};
+use druid::{Color, Widget, WidgetExt};
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use crate::command::{NODE_OPEN_EVENTS, NODE_OPEN_HISTORY};
 use crate::network_types::Level;
 use crate::state::State;
 
 pub fn view_active() -> impl Widget<State> {
-    let active = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.active).unwrap_or_default()
-    }, |active, _, _| {
-        Box::new(match active {
-            true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
-            false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
-        })
+    let active = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.active),
+        |active, _, _| Box::new(super::common::build_bool_view(*active)));
+    let dropped = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.dropped),
+        |dropped, _, _| Box::new(super::common::build_bool_view(*dropped)));
+    let level = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.metadata.clone()),
+        |metadata, _, _| {
+            Box::new(match metadata.level {
+                Level::Trace => Label::new("Trace"),
+                Level::Debug => Label::new("Debug").with_text_color(Color::rgb8(0, 255, 255)),
+                Level::Info => Label::new("Info").with_text_color(Color::rgb8(0, 255, 0)),
+                Level::Warning => Label::new("Debug").with_text_color(Color::rgb8(255, 255, 0)),
+                Level::Error => Label::new("Debug").with_text_color(Color::rgb8(255, 0, 0))
+            })
     });
-    let dropped = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.dropped).unwrap_or_default()
-    }, |dropped, _, _| {
-        Box::new(match dropped {
-            true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
-            false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
-        })
-    });
-    let level = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
-    }, |metadata, _, _| {
-        Box::new(match metadata.level {
-            Level::Trace => Label::new("Trace"),
-            Level::Debug => Label::new("Debug").with_text_color(Color::rgb8(0, 255, 255)),
-            Level::Info => Label::new("Info").with_text_color(Color::rgb8(0, 255, 0)),
-            Level::Warning => Label::new("Debug").with_text_color(Color::rgb8(255, 255, 0)),
-            Level::Error => Label::new("Debug").with_text_color(Color::rgb8(255, 0, 0))
-        })
-    });
-    let name = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
-    }, |metadata, _, _| Box::new(Label::new(metadata.name.clone())));
-    let file_module_path = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.metadata.clone()).unwrap_or_default()
-    }, |metadata, _, _| {
-        let mut flex = Flex::column();
-        if let Some(file) = &metadata.file {
-            flex.add_child(Label::new(format!("File: {} [{:?}]", file, metadata.line)))
-        }
-        if let Some(module_path) = &metadata.module_path {
-            flex.add_child(Label::new(format!("Module path: {}", module_path)))
-        }
-        Box::new(flex)
-    });
-    let duration = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.current.duration).unwrap_or_default()
-    }, |duration, _, _| Box::new(Label::new(format!("Duration: {}s", duration))));
-    let values = ViewSwitcher::new(|data: &State, _| {
-        data.tree_data.get(&data.selected).map(|v| v.current.values.clone()).unwrap_or_default()
-    }, |values, _, _| {
-        let mut flex = Flex::column();
-        for (name, value) in values {
-            flex.add_child(Label::new(format!("{}: {}", name, value)))
-        }
-        Box::new(flex)
-    });
+    let name = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.metadata.clone()),
+        |metadata, _, _| Box::new(Label::new(metadata.name.clone())));
+    let file_module_path = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.metadata.clone()),
+        |metadata, _, _| {
+            let mut flex = Flex::column();
+            if let Some(file) = &metadata.file {
+                flex.add_child(Label::new(format!("File: {} [{:?}]", file, metadata.line)));
+            }
+            if let Some(module_path) = &metadata.module_path {
+                flex.add_child(Label::new(format!("Module path: {}", module_path)));
+            }
+            Box::new(flex)
+        });
+    let duration = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.current.duration),
+        |duration, _, _| Box::new(Label::new(format!("Duration: {}s", duration))));
+    let values = ViewSwitcher::new(
+        |data: &State, _| data.get_field(|v| v.current.values.clone()),
+        |values, _, _| Box::new(super::common::build_values_view(values.iter())));
 
-    let font = super::theme::bold_font();
-
-    let basic = Flex::column()
-        .with_child(Label::new("Basic").with_font(font.clone()))
-        .with_spacer(5.0)
+    let basic = super::common::build_box("Basic")
         .with_child(name)
         .with_child(
             Flex::row()
@@ -111,10 +91,7 @@ pub fn view_active() -> impl Widget<State> {
         )
         .with_child(duration)
         .with_child(file_module_path);
-    let values = Flex::column()
-        .with_child(Label::new("Values").with_font(font.clone()))
-        .with_spacer(5.0)
-        .with_child(values);
+    let values = super::common::build_box("Values").with_child(values);
     let actions = Flex::row()
         .with_child(
             Button::new("View events")

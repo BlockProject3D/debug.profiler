@@ -203,3 +203,9 @@ pub struct State {
     pub event_windows: WindowMap<StateEvents>,
     pub history_windows: WindowMap<StateHistory>,
 }
+
+impl State {
+    pub fn get_field<T: Default, F: FnOnce(&SpanData) -> T>(&self, f: F) -> T {
+        self.tree_data.get(&self.selected).map(f).unwrap_or_default()
+    }
+}

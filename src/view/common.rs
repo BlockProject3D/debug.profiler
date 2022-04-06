@@ -26,34 +26,35 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, LensExt, Widget, WidgetExt};
-use druid::widget::{Flex, Padding, ViewSwitcher};
-use druid_widget_nursery::ListSelect;
-use crate::state::{State, StateEvents};
+use druid::{Color, Data, FontDescriptor, FontFamily, FontWeight, Widget};
+use druid::widget::{Flex, Label};
+use crate::network_types::Value;
 
-fn events_view() -> impl Widget<StateEvents> {
-    let list = ViewSwitcher::new(
-        |data: &StateEvents, _| data.events.clone(),
-        |events, _, _| {
-            Box::new(
-                ListSelect::new(events.iter().map(|v| (v.msg.clone(), v.clone())))
-                    .scroll()
-                    .lens(StateEvents::selected_event)
-            )
-        });
-    let values = ViewSwitcher::new(
-        |data: &StateEvents, _| data.selected_event.clone(),
-        |event, _, _| Box::new(super::common::build_values_view(event.values.iter().map(|(s, v)| (s, v)))));
-
-    let values = super::common::build_box("Values")
-        .with_child(values)
-        .scroll();
-
-    Flex::column()
-        .with_flex_child(list.expand().border(Color::BLACK, 0.5), 50.0)
-        .with_flex_child(values.center().expand().border(Color::BLACK, 0.5), 50.0)
+pub fn bold_font() -> FontDescriptor {
+    FontDescriptor::new(FontFamily::SYSTEM_UI)
+        .with_weight(FontWeight::BOLD)
+        .with_size(20.0)
 }
 
-pub fn events_window(window: usize) -> impl Widget<State> {
-    Padding::new(10.0, events_view().lens(State::event_windows.index(window)))
+pub fn build_box<T: Data>(name: &str) -> Flex<T> {
+    let font = bold_font();
+    Flex::column()
+        .with_child(Label::new(name).with_font(font.clone()))
+        .with_spacer(5.0)
+}
+
+pub fn build_bool_view<T: Data>(val: bool) -> impl Widget<T> {
+    match val {
+        true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
+        false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
+    }
+}
+
+//Yay rust is buggy broken: using impl Widget makes it reject it, but Flex<T> works wtf!!
+pub fn build_values_view<'a, T: Data>(iter: impl Iterator<Item = (&'a String, &'a Value)>) -> Flex<T> {
+    let mut flex = Flex::column();
+    for (name, value) in iter {
+        flex.add_child(Label::new(format!("{}: {}", name, value)))
+    }
+    flex
 }

@@ -34,26 +34,13 @@ use crate::state::{State, StateHistory};
 
 pub fn view_active() -> impl Widget<StateHistory> {
     let duration = ViewSwitcher::new(|data: &StateHistory, _| data.selected_history.duration,
-                                     |duration, _, _| Box::new(Label::new(format!("Duration: {}s", duration))));
-    let values = ViewSwitcher::new(|data: &StateHistory, _| data.selected_history.values.clone(),
-                                   |values, _, _| {
-        let mut flex = Flex::column();
-        for (name, value) in values {
-            flex.add_child(Label::new(format!("{}: {}", name, value)))
-        }
-        Box::new(flex)
-    });
+                                     |duration, _, _| Box::new(Label::new(format!("{}s", duration))));
+    let values = ViewSwitcher::new(
+        |data: &StateHistory, _| data.selected_history.values.clone(),
+        |values, _, _| Box::new(super::common::build_values_view(values.iter())));
 
-    let font = super::theme::bold_font();
-
-    let basic = Flex::column()
-        .with_child(Label::new("Basic").with_font(font.clone()))
-        .with_spacer(5.0)
-        .with_child(duration);
-    let values = Flex::column()
-        .with_child(Label::new("Values").with_font(font.clone()))
-        .with_spacer(5.0)
-        .with_child(values);
+    let basic = super::common::build_box("Duration").with_child(duration);
+    let values = super::common::build_box("Values").with_child(values);
     let actions = Flex::row()
         .with_child(
             Button::new("View events")

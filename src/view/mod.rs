@@ -33,3 +33,4 @@ mod main;
 pub mod events_window;
 pub mod history_window;
 pub mod theme;
+mod common;
