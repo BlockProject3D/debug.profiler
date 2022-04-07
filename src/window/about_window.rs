@@ -29,6 +29,7 @@
 use druid::{Color, Widget, WidgetExt, WindowDesc};
 use druid::widget::{BackgroundBrush, Flex, Label};
 use crate::state::State;
+use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
 
 const ABOUT_LINE1: &str = "BP3D Profiler, Copyright 2022 BlockProject 3D";
@@ -85,7 +86,8 @@ pub struct AboutWindow;
 
 impl Window for AboutWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(view()).title("About BP3D Profiler")
+        WindowDesc::new(view()).title("About BP3D Profiler").menu(build_basic_menu)
+            .window_size((705.0, 400.0))
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {

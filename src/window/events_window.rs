@@ -33,6 +33,7 @@ use druid::widget::{Flex, Padding, ViewSwitcher};
 use druid_widget_nursery::ListSelect;
 use crate::state::{Event, State, StateEvents};
 use crate::view::common;
+use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
 
 fn events_view() -> impl Widget<StateEvents> {
@@ -88,7 +89,7 @@ impl EventsWindow {
 
 impl Window for EventsWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(events_window(self.0)).title("Events")
+        WindowDesc::new(events_window(self.0)).title("Events").menu(build_basic_menu)
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {

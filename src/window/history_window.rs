@@ -33,6 +33,7 @@ use druid_widget_nursery::ListSelect;
 use crate::command::SPAWN_WINDOW;
 use crate::state::{SpanLogEntry, State, StateHistory};
 use crate::view::common;
+use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
 use crate::window::events_window::EventsWindow;
 
@@ -129,7 +130,7 @@ impl HistoryWindow {
 
 impl Window for HistoryWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(history_window(self.0)).title("History")
+        WindowDesc::new(history_window(self.0)).title("History").menu(build_basic_menu)
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {

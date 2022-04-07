@@ -32,7 +32,7 @@ use crate::APP_NAME;
 use crate::command::CONNECT;
 use crate::state::State;
 use crate::view::main::view_main;
-use crate::view::menu::build_menu;
+use crate::view::menu::build_main_menu;
 use crate::view::tree::view_tree;
 use crate::window::{Destroy, Window};
 
@@ -64,7 +64,8 @@ pub struct MainWindow;
 
 impl Window for MainWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(main_window()).title(APP_NAME).menu(build_menu)
+        WindowDesc::new(main_window()).title(APP_NAME).menu(build_main_menu)
+            .window_size((800.0, 600.0))
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {

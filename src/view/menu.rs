@@ -84,7 +84,12 @@ fn build_connection_menu() -> Menu<State> {
         .entry(MenuItem::new("New"))
 }
 
-pub fn build_menu(_: Option<WindowId>, _: &State, _: &Env) -> Menu<State> {
+pub fn build_basic_menu(_: Option<WindowId>, _: &State, _: &Env) -> Menu<State> {
+    Menu::new(LocalizedString::new(""))
+        .entry(build_app_menu())
+}
+
+pub fn build_main_menu(_: Option<WindowId>, _: &State, _: &Env) -> Menu<State> {
     Menu::new(LocalizedString::new(""))
         .entry(build_app_menu())
         .entry(build_connection_menu())
