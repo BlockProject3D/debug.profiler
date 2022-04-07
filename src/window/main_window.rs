@@ -32,6 +32,7 @@ use crate::APP_NAME;
 use crate::command::CONNECT;
 use crate::state::State;
 use crate::view::main::view_main;
+use crate::view::menu::build_menu;
 use crate::view::tree::view_tree;
 use crate::window::{Destroy, Window};
 
@@ -39,7 +40,7 @@ fn handle_connect(ctx: &mut EventCtx, _: &mut State, _: &Env) {
     ctx.submit_command(CONNECT);
 }
 
-pub fn main_window() -> impl Widget<State> {
+fn main_window() -> impl Widget<State> {
     ViewSwitcher::new(|data: &State, _| data.connected, |connected, _, _| {
         let flex = match connected {
             true => Flex::row()
@@ -63,7 +64,7 @@ pub struct MainWindow;
 
 impl Window for MainWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(main_window()).title(APP_NAME)
+        WindowDesc::new(main_window()).title(APP_NAME).menu(build_menu)
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {

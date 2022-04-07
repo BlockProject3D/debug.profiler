@@ -29,7 +29,7 @@
 use druid::WindowDesc;
 use crate::state::State;
 
-pub mod main_window;
+mod main_window;
 mod events_window;
 mod history_window;
 mod about_window;
@@ -46,3 +46,4 @@ pub trait Window {
 pub use history_window::HistoryWindow;
 pub use events_window::EventsWindow;
 pub use about_window::AboutWindow;
+pub use main_window::MainWindow;

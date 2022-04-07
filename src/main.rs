@@ -27,10 +27,10 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
+use druid::{AppLauncher, PlatformError};
 use view::theme;
-use window::main_window;
 use crate::thread::NetworkThread;
+use crate::window::Window;
 
 pub const APP_NAME: &str = "BP3D Profiler";
 
@@ -50,10 +50,7 @@ fn main() -> Result<(), PlatformError> {
         let thread = NetworkThread::new(receiver);
         thread.run();
     });
-    let main_window = WindowDesc::new(main_window::main_window())
-        .title(APP_NAME)
-        .menu(view::menu::build_menu);
-    let res = AppLauncher::with_window(main_window)
+    let res = AppLauncher::with_window(window::MainWindow.build())
         .delegate(delegate::Delegate::new(sender))
         .configure_env(theme::overwrite_theme)
         .launch(state::State::default());
