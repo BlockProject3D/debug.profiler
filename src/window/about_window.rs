@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Widget, WidgetExt, WindowDesc};
-use druid::widget::{Flex, Label};
+use druid::{Color, Widget, WidgetExt, WindowDesc};
+use druid::widget::{BackgroundBrush, Flex, Label};
 use crate::state::State;
 use crate::window::{Destroy, Window};
 
@@ -64,13 +64,21 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."#;
 
 fn view() -> impl Widget<State> {
     Flex::column()
-        .with_child(Label::new(crate::APP_NAME))
+        .with_flex_child(Label::new(crate::APP_NAME), 1.0)
         .with_spacer(10.0)
-        .with_child(Label::new(ABOUT_LINE1))
-        .with_child(Label::new(ABOUT_LINE2))
-        .with_spacer(10.0)
-        .with_child(Label::new(LICENSE).scroll())
+        .with_flex_child(Label::new(ABOUT_LINE1), 1.0)
+        .with_spacer(20.0)
+        .with_flex_child(Label::new(ABOUT_LINE2), 1.0)
+        .with_spacer(7.0)
+        .with_flex_child(
+            Label::new(LICENSE)
+                .padding(10.0)
+                .background(BackgroundBrush::Color(Color::WHITE))
+                .scroll(),
+            15.0
+        )
         .center()
+        .padding(10.0)
 }
 
 pub struct AboutWindow;
