@@ -122,13 +122,13 @@ impl Delegate {
                 };
                 if let Some(span) = span {
                     let data = state.tree_data.get_mut(span).unwrap();
-                    data.current.events.push_back(Arc::new(event));
+                    data.current.events.push_front(Arc::new(event));
                 } else {
                     if !state.tree_data.contains_key(&0) {
                         state.tree_data.insert(0, SpanData::default());
                     }
                     let data = state.tree_data.get_mut(&0).unwrap();
-                    data.current.events.push_back(Arc::new(event));
+                    data.current.events.push_front(Arc::new(event));
                 }
             }
             NetCommand::SpanEnter(span) => {
@@ -144,7 +144,7 @@ impl Delegate {
                 let data = state.tree_data.get_mut(span).unwrap();
                 let log = std::mem::replace(&mut data.current, SpanLogEntry::new());
                 data.dropped = true;
-                data.history.push_back(log);
+                data.history.push_front(log);
             }
             NetCommand::Terminate => {
                 state.status = "Target application has terminated!".into();
