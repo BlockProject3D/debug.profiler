@@ -26,12 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Env, EventCtx, UnitPoint, Widget, WidgetExt};
+use druid::{Color, Env, EventCtx, UnitPoint, Widget, WidgetExt, WindowDesc};
 use druid::widget::{Align, Button, Flex, Label, Padding, TextBox, ViewSwitcher};
+use crate::APP_NAME;
 use crate::command::CONNECT;
 use crate::state::State;
 use crate::view::main::view_main;
 use crate::view::tree::view_tree;
+use crate::window::{Destroy, Window};
 
 fn handle_connect(ctx: &mut EventCtx, _: &mut State, _: &Env) {
     ctx.submit_command(CONNECT);
@@ -55,4 +57,16 @@ pub fn main_window() -> impl Widget<State> {
             .with_flex_child(Align::centered(flex.expand()), 90.0)
             .with_flex_child(Align::vertical(UnitPoint::BOTTOM, Label::dynamic(|data: &State, _| data.status.clone())), 5.0)))
     })
+}
+
+pub struct MainWindow;
+
+impl Window for MainWindow {
+    fn build(&self) -> WindowDesc<State> {
+        WindowDesc::new(main_window()).title(APP_NAME)
+    }
+
+    fn destructor(&self) -> Option<Box<dyn Destroy>> {
+        None
+    }
 }

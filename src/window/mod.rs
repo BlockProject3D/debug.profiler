@@ -26,38 +26,23 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError, WindowDesc};
-use view::theme;
-use window::main_window;
-use crate::thread::NetworkThread;
+use druid::WindowDesc;
+use crate::state::State;
 
-pub const APP_NAME: &str = "BP3D Profiler";
+pub mod main_window;
+mod events_window;
+mod history_window;
+mod about_window;
 
-mod network_types;
-mod state;
-mod delegate;
-mod thread;
-mod command;
-mod view;
-mod window_map;
-mod window;
-
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
-        thread.run();
-    });
-    let main_window = WindowDesc::new(main_window::main_window())
-        .title(APP_NAME)
-        .menu(view::menu::build_menu);
-    let res = AppLauncher::with_window(main_window)
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+pub trait Destroy {
+    fn destroy(&self, state: &mut State);
 }
+
+pub trait Window {
+    fn build(&self) -> WindowDesc<State>;
+    fn destructor(&self) -> Option<Box<dyn Destroy>>;
+}
+
+pub use history_window::HistoryWindow;
+pub use events_window::EventsWindow;
+pub use about_window::AboutWindow;

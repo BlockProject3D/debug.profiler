@@ -26,10 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, LensExt, Widget, WidgetExt};
+use std::sync::Arc;
+use druid::{Color, LensExt, Widget, WidgetExt, WindowDesc};
+use druid::im::Vector;
 use druid::widget::{Flex, Padding, ViewSwitcher};
 use druid_widget_nursery::ListSelect;
-use crate::state::{State, StateEvents};
+use crate::state::{Event, State, StateEvents};
+use crate::view::common;
+use crate::window::{Destroy, Window};
 
 fn events_view() -> impl Widget<StateEvents> {
     let list = ViewSwitcher::new(
@@ -43,9 +47,9 @@ fn events_view() -> impl Widget<StateEvents> {
         });
     let values = ViewSwitcher::new(
         |data: &StateEvents, _| data.selected_event.clone(),
-        |event, _, _| Box::new(super::common::build_values_view(event.values.iter().map(|(s, v)| (s, v)))));
+        |event, _, _| Box::new(common::build_values_view(event.values.iter().map(|(s, v)| (s, v)))));
 
-    let values = super::common::build_box("Values")
+    let values = common::build_box("Values")
         .with_child(values)
         .scroll();
     Flex::column()
@@ -53,6 +57,41 @@ fn events_view() -> impl Widget<StateEvents> {
         .with_flex_child(values.center().expand().border(Color::BLACK, 0.5), 50.0)
 }
 
-pub fn events_window(window: usize) -> impl Widget<State> {
+fn events_window(window: usize) -> impl Widget<State> {
     Padding::new(10.0, events_view().lens(State::event_windows.index(window)))
+}
+
+struct Destructor(usize);
+
+impl Destroy for Destructor {
+    fn destroy(&self, state: &mut State) {
+        state.event_windows.remove(self.0)
+    }
+}
+
+pub struct EventsWindow(usize);
+
+impl EventsWindow {
+    pub fn new(state: &mut State, events: Vector<Arc<Event>>) -> Option<Self> {
+        if let Some(event) = events.iter().nth(0) {
+            let handle = state.event_windows.insert(StateEvents {
+                selected_event: event.clone(),
+                events,
+            });
+            Some(Self(handle))
+        } else {
+            state.status = "No events are available for this node at this time.".into();
+            None
+        }
+    }
+}
+
+impl Window for EventsWindow {
+    fn build(&self) -> WindowDesc<State> {
+        WindowDesc::new(events_window(self.0)).title("Events")
+    }
+
+    fn destructor(&self) -> Option<Box<dyn Destroy>> {
+        Some(Box::new(Destructor(self.0)))
+    }
 }

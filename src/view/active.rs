@@ -28,9 +28,11 @@
 
 use druid::{Color, Widget, WidgetExt};
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
-use crate::command::{NODE_OPEN_EVENTS, NODE_OPEN_HISTORY};
+use crate::command::SPAWN_WINDOW;
 use crate::network_types::Level;
 use crate::state::State;
+use crate::window::EventsWindow;
+use crate::window::HistoryWindow;
 
 pub fn view_active() -> impl Widget<State> {
     let active = ViewSwitcher::new(
@@ -97,7 +99,9 @@ pub fn view_active() -> impl Widget<State> {
             Button::new("View events")
                 .on_click(|ctx, data: &mut State, _| {
                     let events = data.tree_data.get(&data.selected).unwrap().current.events.clone();
-                    ctx.submit_command(NODE_OPEN_EVENTS.with(events));
+                    if let Some(window) = EventsWindow::new(data, events) {
+                        ctx.submit_command(SPAWN_WINDOW.with(Box::new(window)));
+                    }
                 })
         )
         .with_spacer(5.0)
@@ -105,7 +109,9 @@ pub fn view_active() -> impl Widget<State> {
             Button::new("View history")
                 .on_click(|ctx, data: &mut State, _| {
                     let history = data.tree_data.get(&data.selected).unwrap().history.clone();
-                    ctx.submit_command(NODE_OPEN_HISTORY.with(history));
+                    if let Some(window) = HistoryWindow::new(data, history) {
+                        ctx.submit_command(SPAWN_WINDOW.with(Box::new(window)));
+                    }
                 })
         );
     Flex::column()

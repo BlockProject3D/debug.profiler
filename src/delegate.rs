@@ -29,27 +29,21 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
-use druid::{AppDelegate, Command, Data, DelegateCtx, Env, Handled, Target, Widget, WindowDesc, WindowId};
+use druid::{AppDelegate, Command, DelegateCtx, Env, Handled, Target, WindowId};
 use druid::commands::{CLOSE_WINDOW, QUIT_APP};
 use druid::im::Vector;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
-use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, NODE_OPEN_EVENTS, NODE_OPEN_HISTORY, SELECT_NODE};
-use crate::state::{Event, Span, SpanData, SpanLogEntry, State, StateEvents, StateHistory};
+use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE, SPAWN_WINDOW};
+use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
 use crate::network_types::{Command as NetCommand, Level, Metadata};
-use crate::view::events_window::events_window;
-use crate::view::history_window::history_window;
-
-enum WindowHandle {
-    Event(usize),
-    History(usize)
-}
+use crate::window::Destroy;
 
 pub struct Delegate {
     channel: Sender<crate::thread::Command>,
     networked: bool,
-    hack_window_handles: HashMap<WindowId, WindowHandle>,
+    windows: HashMap<WindowId, Box<dyn Destroy>>,
     window_count: usize
 }
 
@@ -68,7 +62,7 @@ impl Delegate {
         Delegate {
             channel,
             networked: false,
-            hack_window_handles: HashMap::new(),
+            windows: HashMap::new(),
             window_count: 1
         }
     }
@@ -162,13 +156,6 @@ impl Delegate {
         }
     }
 
-    fn add_window<T: Data>(&mut self, ctx: &mut DelegateCtx, handle: WindowHandle, view: impl Widget<T> + 'static) {
-        let desc = WindowDesc::new(view);
-        self.hack_window_handles.insert(desc.id, handle);
-        self.window_count += 1;
-        ctx.new_window(desc);
-    }
-
     fn close_window(&mut self) -> bool {
         self.window_count -= 1;
         self.window_count == 0
@@ -199,27 +186,14 @@ impl AppDelegate<State> for Delegate {
             state.selected = *id;
             return Handled::Yes;
         }
-        if let Some(events) = cmd.get(NODE_OPEN_EVENTS) {
-            if let Some(event) = events.iter().nth(0) {
-                let handle = state.event_windows.insert(StateEvents {
-                    events: events.clone(),
-                    selected_event: event.clone()
-                });
-                self.add_window(ctx, WindowHandle::Event(handle), events_window(handle));
-            } else {
-                state.status = "No events are available for this node at this time.".into()
+        if let Some(window) = cmd.get(SPAWN_WINDOW) {
+            self.window_count += 1;
+            let desc = window.build();
+            if let Some(destructor) = window.destructor() {
+                self.windows.insert(desc.id, destructor);
             }
-        }
-        if let Some(history) = cmd.get(NODE_OPEN_HISTORY) {
-            if let Some(entry) = history.iter().nth(0) {
-                let handle = state.history_windows.insert(StateHistory {
-                    history: history.clone(),
-                    selected_history: entry.clone()
-                });
-                self.add_window(ctx, WindowHandle::History(handle), history_window(handle));
-            } else {
-                state.status = "No history is available for this node at this time.".into()
-            }
+            ctx.new_window(desc);
+            return Handled::Yes;
         }
         if self.networked {
             if let Some(msg) = cmd.get(NETWORK_COMMAND) {
@@ -237,11 +211,8 @@ impl AppDelegate<State> for Delegate {
     }
 
     fn window_removed(&mut self, id: WindowId, data: &mut State, _: &Env, _: &mut DelegateCtx) {
-        if let Some(handle) = self.hack_window_handles.remove(&id) {
-            match handle {
-                WindowHandle::Event(h) => data.event_windows.remove(h),
-                WindowHandle::History(h) => data.history_windows.remove(h)
-            }
+        if let Some(destructor) = self.windows.remove(&id) {
+            destructor.destroy(data);
         }
     }
 }

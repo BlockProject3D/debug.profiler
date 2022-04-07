@@ -26,11 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-pub mod main_window;
-mod tree;
+pub mod tree;
 mod active;
-mod main;
-pub mod events_window;
-pub mod history_window;
+pub mod main;
 pub mod theme;
-mod common;
+pub mod common;
+pub mod menu;
