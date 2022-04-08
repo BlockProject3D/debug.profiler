@@ -35,7 +35,7 @@ use crate::state::{SpanLogEntry, State, StateHistory};
 use crate::view::common;
 use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
-use crate::window::events_window::EventsWindow;
+use crate::window::events::EventsWindow;
 
 fn view_active_start() -> impl Widget<StateHistory> {
     let duration = ViewSwitcher::new(|data: &StateHistory, _| data.selected_history.duration,

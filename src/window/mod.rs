@@ -29,10 +29,10 @@
 use druid::WindowDesc;
 use crate::state::State;
 
-mod main_window;
-mod events_window;
-mod history_window;
-mod about_window;
+mod main;
+mod events;
+mod history;
+mod about;
 
 pub trait Destroy {
     fn destroy(&self, state: &mut State);
@@ -43,7 +43,7 @@ pub trait Window {
     fn destructor(&self) -> Option<Box<dyn Destroy>>;
 }
 
-pub use history_window::HistoryWindow;
-pub use events_window::EventsWindow;
-pub use about_window::AboutWindow;
-pub use main_window::MainWindow;
+pub use history::HistoryWindow;
+pub use events::EventsWindow;
+pub use about::AboutWindow;
+pub use main::MainWindow;
