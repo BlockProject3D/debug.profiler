@@ -102,7 +102,7 @@ impl Delegate {
                 }
             }
             NetCommand::Event { span, metadata, time, value_set } => {
-                let timezone = time_tz::system::get_timezone().unwrap_or(time_tz::timezones::db::america::NEW_YORK);
+                let timezone = time_tz::system::get_timezone().unwrap_or(time_tz::timezones::db::us::CENTRAL);
                 let datetime = OffsetDateTime::from_unix_timestamp(*time).unwrap_or(OffsetDateTime::now_utc());
                 let converted = datetime.to_timezone(timezone);
                 let format = format_description!("[weekday repr:short] [month repr:short] [day] [hour repr:12]:[minute]:[second] [period case:upper]");
@@ -115,11 +115,17 @@ impl Delegate {
                     Level::Error => "ERROR"
                 };
                 let (_, module) = extract_target_module(metadata);
+                //TODO: Check what `metadata.name` really means because surprising behavior is you
+                // can call `trace!` without any name... Maybe is it better to parse the value_set
+                // and extract the message variable and use that as name instead of `metadata.name`.
                 let msg = format!("[{}] ({}) {}: {}", level, formatted, module.unwrap_or("main"), metadata.name);
                 let mut value_set = value_set.clone();
                 let data = if let Some(span) = span {
                     let data = state.tree_data.get_mut(span).unwrap();
                     if state.preferences.inherit {
+                        // Potential problem if parent is freed before child. I don't expect tracing
+                        // to call try_close on the parent before the child.
+                        //TODO: Check if by any chance tracing would act weird...
                         let iter = data.current.values.iter()
                             .map(|(k, v)| (data.metadata.name.clone() + k, v.clone()));
                         for (k, v) in iter {
