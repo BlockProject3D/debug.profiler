@@ -33,6 +33,7 @@ mod main;
 mod events;
 mod history;
 mod about;
+mod preferences;
 
 pub trait Destroy {
     fn destroy(&self, state: &mut State);
@@ -47,3 +48,4 @@ pub use history::HistoryWindow;
 pub use events::EventsWindow;
 pub use about::AboutWindow;
 pub use main::MainWindow;
+pub use preferences::PreferencesWindow;

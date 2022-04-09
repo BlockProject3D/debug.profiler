@@ -192,6 +192,26 @@ pub struct StateHistory {
     pub history: Vector<SpanLogEntry>
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Data)]
+pub enum Theme {
+    Light,
+    Dark
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::Light
+    }
+}
+
+#[derive(Clone, Data, Lens, Default)]
+pub struct Preferences {
+    pub max_history: u32,
+    pub max_events: u32,
+    pub theme: Theme,
+    pub inherit: bool
+}
+
 #[derive(Clone, Data, Lens, Default)]
 pub struct State {
     pub tree: Span,
@@ -202,6 +222,7 @@ pub struct State {
     pub selected: u64,
     pub event_windows: WindowMap<StateEvents>,
     pub history_windows: WindowMap<StateHistory>,
+    pub preferences: Preferences
 }
 
 impl State {

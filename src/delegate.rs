@@ -116,19 +116,32 @@ impl Delegate {
                 };
                 let (_, module) = extract_target_module(metadata);
                 let msg = format!("[{}] ({}) {}: {}", level, formatted, module.unwrap_or("main"), metadata.name);
-                let event = Event {
-                    msg,
-                    values: value_set.clone().into_boxed_slice().into()
-                };
-                if let Some(span) = span {
+                let mut value_set = value_set.clone();
+                let data = if let Some(span) = span {
                     let data = state.tree_data.get_mut(span).unwrap();
-                    data.current.events.push_front(Arc::new(event));
+                    if state.preferences.inherit {
+                        let iter = data.current.values.iter()
+                            .map(|(k, v)| (data.metadata.name.clone() + k, v.clone()));
+                        for (k, v) in iter {
+                            value_set.insert(0, (k, v));
+                        }
+                    }
+                    data
                 } else {
                     if !state.tree_data.contains_key(&0) {
                         state.tree_data.insert(0, SpanData::default());
                     }
-                    let data = state.tree_data.get_mut(&0).unwrap();
-                    data.current.events.push_front(Arc::new(event));
+                    state.tree_data.get_mut(&0).unwrap()
+                };
+                let event = Event {
+                    msg,
+                    values: value_set.into_boxed_slice().into()
+                };
+                data.current.events.push_front(Arc::new(event));
+                if state.preferences.max_events > 0
+                    && data.current.events.len() > state.preferences.max_events as usize {
+                    data.current.events.pop_back(); // Drop oldest item to ensure we do not exceed
+                    // the user defined size limit.
                 }
             }
             NetCommand::SpanEnter(span) => {
@@ -141,10 +154,30 @@ impl Delegate {
                 data.current.duration = *duration;
             }
             NetCommand::SpanFree(span) => {
+                let mut log = std::mem::replace(
+                    &mut state.tree_data.get_mut(span).unwrap().current,
+                    SpanLogEntry::new());
+                if state.preferences.inherit {
+                    // Potential problem if parent is freed before child. I don't expect tracing
+                    // to call try_close on the parent before the child.
+                    //TODO: Check if by any chance tracing would act weird...
+                    if let Some(parent) = state.tree.find_parent(*span) {
+                        let data1 = state.tree_data.get(&parent).unwrap();
+                        let iter = data1.current.values.iter()
+                            .map(|(k, v)| (data1.metadata.name.clone() + k, v.clone()));
+                        for (k, v) in iter {
+                            log.values.insert(k, v);
+                        }
+                    }
+                }
                 let data = state.tree_data.get_mut(span).unwrap();
-                let log = std::mem::replace(&mut data.current, SpanLogEntry::new());
                 data.dropped = true;
                 data.history.push_front(log);
+                if state.preferences.max_history > 0
+                    && data.history.len() > state.preferences.max_history as usize {
+                    data.history.pop_back(); // Drop oldest item to ensure we do not exceed the
+                    // user defined size limit.
+                }
             }
             NetCommand::Terminate => {
                 state.status = "Target application has terminated!".into();
