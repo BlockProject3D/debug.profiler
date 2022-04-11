@@ -36,6 +36,12 @@ pub fn bold_font() -> FontDescriptor {
         .with_size(20.0)
 }
 
+pub fn small_bold_font() -> FontDescriptor {
+    FontDescriptor::new(FontFamily::SYSTEM_UI)
+        .with_size(16.0)
+        .with_weight(FontWeight::BOLD)
+}
+
 pub fn build_box<T: Data>(name: &str) -> Flex<T> {
     let font = bold_font();
     Flex::column()
@@ -52,9 +58,15 @@ pub fn build_bool_view<T: Data>(val: bool) -> impl Widget<T> {
 
 //Yay rust is buggy broken: using impl Widget makes it reject it, but Flex<T> works wtf!!
 pub fn build_values_view<'a, T: Data>(iter: impl Iterator<Item = (&'a String, &'a Value)>) -> Flex<T> {
+    let name_font = small_bold_font();
     let mut flex = Flex::column();
     for (name, value) in iter {
-        flex.add_child(Label::new(format!("{}: {}", name, value)))
+        flex.add_child(
+            Flex::row()
+                .with_child(Label::new(name.clone()).with_font(name_font.clone()))
+                .with_spacer(15.5)
+                .with_child(Label::new(value.to_string()))
+        );
     }
     flex
 }
