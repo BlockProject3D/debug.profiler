@@ -127,7 +127,7 @@ impl Delegate {
                         // to call try_close on the parent before the child.
                         //TODO: Check if by any chance tracing would act weird...
                         let iter = data.current.values.iter()
-                            .map(|(k, v)| (data.metadata.name.clone() + k, v.clone()));
+                            .map(|(k, v)| (data.metadata.name.clone() + "::" + k, v.clone()));
                         for (k, v) in iter {
                             value_set.insert(0, (k, v));
                         }
@@ -144,7 +144,7 @@ impl Delegate {
                     values: value_set.into_boxed_slice().into()
                 };
                 data.current.events.push_front(Arc::new(event));
-                if state.preferences.max_events > 0
+                while state.preferences.max_events > 0
                     && data.current.events.len() > state.preferences.max_events as usize {
                     data.current.events.pop_back(); // Drop oldest item to ensure we do not exceed
                     // the user defined size limit.
@@ -170,7 +170,7 @@ impl Delegate {
                     if let Some(parent) = state.tree.find_parent(*span) {
                         let data1 = state.tree_data.get(&parent).unwrap();
                         let iter = data1.current.values.iter()
-                            .map(|(k, v)| (data1.metadata.name.clone() + k, v.clone()));
+                            .map(|(k, v)| (data1.metadata.name.clone() + "::" + k, v.clone()));
                         for (k, v) in iter {
                             log.values.insert(k, v);
                         }
@@ -179,7 +179,7 @@ impl Delegate {
                 let data = state.tree_data.get_mut(span).unwrap();
                 data.dropped = true;
                 data.history.push_front(log);
-                if state.preferences.max_history > 0
+                while state.preferences.max_history > 0
                     && data.history.len() > state.preferences.max_history as usize {
                     data.history.pop_back(); // Drop oldest item to ensure we do not exceed the
                     // user defined size limit.
