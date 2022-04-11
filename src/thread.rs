@@ -38,9 +38,9 @@ use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::network_types::Command as NetCommand;
 
-const MAX_BUFFER: usize = 256;
-const MAX_SUB_BUFFER: usize = 128;
-// Only allow fast forwarding to 128 commands because druid is
+const MAX_BUFFER: usize = 1024;
+const MAX_SUB_BUFFER: usize = 512;
+// Only allow fast forwarding to 512 commands because druid is
 // an atrociously slow library.
 
 pub enum Command {
@@ -167,13 +167,15 @@ impl NetworkThread {
             }
             if let Some((channel, sink, _)) = &network {
                 let mut flag = false;
-                while let Ok(msg) = channel.try_recv() {
-                    match msg {
-                        Ok(v) => vec.push_back(v),
-                        Err(e) => {
-                            sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
-                            flag = true;
-                            break;
+                while vec.len() < MAX_BUFFER {
+                    if let Ok(msg) = channel.try_recv() {
+                        match msg {
+                            Ok(v) => vec.push_back(v),
+                            Err(e) => {
+                                sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+                                flag = true;
+                                break;
+                            }
                         }
                     }
                 }
