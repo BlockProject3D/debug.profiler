@@ -99,6 +99,7 @@ pub enum Command {
     SpanInit {
         span: u64,
         parent: Option<u64>, //None must mean that span is at root
+        message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 
@@ -109,6 +110,7 @@ pub enum Command {
 
     SpanValues {
         span: u64,
+        message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 
@@ -116,6 +118,7 @@ pub enum Command {
         span: Option<u64>,
         metadata: Metadata,
         time: i64,
+        message: Option<String>,
         value_set: Vec<(String, Value)>
     },
 

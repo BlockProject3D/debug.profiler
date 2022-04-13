@@ -37,7 +37,7 @@ use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
 use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
-use crate::network_types::{Command as NetCommand, Level, Metadata};
+use crate::network_types::{Command as NetCommand, Level, Metadata, Value};
 use crate::window::Destroy;
 
 pub struct Delegate {
@@ -80,11 +80,14 @@ impl Delegate {
                 });
                 state.tree.add_node(Span::with_metadata(*id, metadata));
             }
-            NetCommand::SpanInit { span, parent, value_set } => {
+            NetCommand::SpanInit { span, parent, message, value_set } => {
                 if let Some(parent) = parent {
                     state.tree.relocate_node(*span, *parent);
                 }
                 let data = state.tree_data.get_mut(span).unwrap();
+                if let Some(message) = message {
+                    data.current.values.insert("message".into(), Value::String(message.clone()));
+                }
                 for (k, v) in value_set {
                     data.current.values.insert(k.clone(), v.clone());
                 }
@@ -95,13 +98,16 @@ impl Delegate {
                     state.tree.relocate_node(*span, parent);
                 }
             }
-            NetCommand::SpanValues { span, value_set } => {
+            NetCommand::SpanValues { span, message, value_set } => {
                 let data = state.tree_data.get_mut(span).unwrap();
+                if let Some(message) = message {
+                    data.current.values.insert("message".into(), Value::String(message.clone()));
+                }
                 for (k, v) in value_set {
                     data.current.values.insert(k.clone(), v.clone());
                 }
             }
-            NetCommand::Event { span, metadata, time, value_set } => {
+            NetCommand::Event { span, metadata, time, message, value_set } => {
                 let timezone = time_tz::system::get_timezone().unwrap_or(time_tz::timezones::db::us::CENTRAL);
                 let datetime = OffsetDateTime::from_unix_timestamp(*time).unwrap_or(OffsetDateTime::now_utc());
                 let converted = datetime.to_timezone(timezone);
@@ -115,10 +121,7 @@ impl Delegate {
                     Level::Error => "ERROR"
                 };
                 let (_, module) = extract_target_module(metadata);
-                //TODO: Check what `metadata.name` really means because surprising behavior is you
-                // can call `trace!` without any name... Maybe is it better to parse the value_set
-                // and extract the message variable and use that as name instead of `metadata.name`.
-                let msg = format!("[{}] ({}) {}: {}", level, formatted, module.unwrap_or("main"), metadata.name);
+                let msg = format!("[{}] ({}) {}: {}", level, formatted, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
                 let mut value_set = value_set.clone();
                 let data = if let Some(span) = span {
                     let data = state.tree_data.get_mut(span).unwrap();
