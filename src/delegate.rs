@@ -37,7 +37,7 @@ use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
 use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
-use crate::network_types::{Command as NetCommand, Level, Metadata, Value};
+use crate::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
 
 pub struct Delegate {
@@ -45,16 +45,6 @@ pub struct Delegate {
     networked: bool,
     windows: HashMap<WindowId, Box<dyn Destroy>>,
     window_count: usize
-}
-
-fn extract_target_module(record: &Metadata) -> (&str, Option<&str>) {
-    let base_string = record.module_path.as_deref().unwrap_or_else(|| &*record.target);
-    let target = base_string
-        .find("::")
-        .map(|v| &base_string[..v])
-        .unwrap_or(&base_string);
-    let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-    (target, module)
 }
 
 impl Delegate {
@@ -120,8 +110,8 @@ impl Delegate {
                     Level::Warning => "WARNING",
                     Level::Error => "ERROR"
                 };
-                let (_, module) = extract_target_module(metadata);
-                let msg = format!("[{}] ({}) {}: {}", level, formatted, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
+                let (target, module) = metadata.get_target_module();
+                let msg = format!("<{}> [{}] ({}) {}: {}", target, level, formatted, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
                 let mut value_set = value_set.clone();
                 let data = if let Some(span) = span {
                     let data = state.tree_data.get_mut(span).unwrap();
