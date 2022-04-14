@@ -76,6 +76,18 @@ pub struct Metadata {
     pub line: Option<u32> //The line number in the file
 }
 
+impl Metadata {
+    pub fn get_target_module(&self) -> (&str, Option<&str>) {
+        let base_string = self.module_path.as_deref().unwrap_or_else(|| &*self.target);
+        let target = base_string
+            .find("::")
+            .map(|v| &base_string[..v])
+            .unwrap_or(&base_string);
+        let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
+        (target, module)
+    }
+}
+
 impl Default for Metadata {
     fn default() -> Self {
         Metadata {

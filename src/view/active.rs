@@ -31,6 +31,7 @@ use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use crate::command::SPAWN_WINDOW;
 use crate::network_types::Level;
 use crate::state::State;
+use crate::view::common::small_bold_font;
 use crate::window::EventsWindow;
 use crate::window::HistoryWindow;
 
@@ -54,45 +55,71 @@ pub fn view_active() -> impl Widget<State> {
     });
     let name = ViewSwitcher::new(
         |data: &State, _| data.get_field(|v| v.metadata.clone()),
-        |metadata, _, _| Box::new(Label::new(metadata.name.clone())));
-    let file_module_path = ViewSwitcher::new(
+        move |metadata, _, _| {
+            let font = small_bold_font();
+            Box::new(Label::new(metadata.name.clone()).with_font(font))
+        });
+    let target_module_file = ViewSwitcher::new(
         |data: &State, _| data.get_field(|v| v.metadata.clone()),
         |metadata, _, _| {
-            let mut flex = Flex::column();
+            let font = small_bold_font();
+            let (target, module) = metadata.get_target_module();
+            let mut flex = Flex::column()
+                .with_child(
+                    Flex::row()
+                        .with_child(Label::new("Target: ").with_font(font.clone()))
+                        .with_child(Label::new(target))
+                )
+                .with_child(
+                    Flex::row()
+                        .with_child(Label::new("Module: ").with_font(font.clone()))
+                        .with_child(Label::new(module.unwrap_or("main")))
+                );
             if let Some(file) = &metadata.file {
-                flex.add_child(Label::new(format!("File: {} [{:?}]", file, metadata.line)));
-            }
-            if let Some(module_path) = &metadata.module_path {
-                flex.add_child(Label::new(format!("Module path: {}", module_path)));
+                let label = match metadata.line {
+                    Some(line) => Label::new(format!("{} [{}]", file, line)),
+                    None => Label::new(format!("{} [?]", file))
+                };
+                flex.add_child(
+                    Flex::row()
+                        .with_child(Label::new("File: ").with_font(font))
+                        .with_child(label)
+                );
             }
             Box::new(flex)
         });
     let duration = ViewSwitcher::new(
         |data: &State, _| data.get_field(|v| v.current.duration),
-        |duration, _, _| Box::new(Label::new(format!("Duration: {}s", duration))));
+        |duration, _, _| {
+            let font = small_bold_font();
+            Box::new(Flex::row()
+                         .with_child(Label::new("Duration: ").with_font(font))
+                         .with_child(Label::new(duration.to_string())))
+        });
     let values = ViewSwitcher::new(
         |data: &State, _| data.get_field(|v| v.current.values.clone()),
         |values, _, _| Box::new(super::common::build_values_view(values.iter())));
 
+    let font = small_bold_font();
     let basic = super::common::build_box("Basic")
         .with_child(name)
         .with_child(
             Flex::row()
-                .with_child(Label::new("Active: "))
+                .with_child(Label::new("Active: ").with_font(font.clone()))
                 .with_child(active)
         )
         .with_child(
             Flex::row()
-                .with_child(Label::new("Dropped: "))
+                .with_child(Label::new("Dropped: ").with_font(font.clone()))
                 .with_child(dropped)
         )
         .with_child(
             Flex::row()
-                .with_child(Label::new("Level: "))
+                .with_child(Label::new("Level: ").with_font(font.clone()))
                 .with_child(level)
         )
         .with_child(duration)
-        .with_child(file_module_path);
+        .with_child(target_module_file);
     let values = super::common::build_box("Values").with_child(values);
     let actions = Flex::row()
         .with_child(
