@@ -168,15 +168,16 @@ impl NetworkThread {
             if let Some((channel, sink, _)) = &network {
                 let mut flag = false;
                 while vec.len() < MAX_BUFFER {
-                    if let Ok(msg) = channel.try_recv() {
-                        match msg {
+                    match channel.try_recv() {
+                        Ok(msg) => match msg {
                             Ok(v) => vec.push_back(v),
                             Err(e) => {
                                 sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
                                 flag = true;
                                 break;
                             }
-                        }
+                        },
+                        Err(_) => break
                     }
                 }
                 if flag {
