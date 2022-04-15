@@ -46,7 +46,7 @@ fn main() -> Result<(), PlatformError> {
     let (sender, receiver) = channel();
     let exit_channel = sender.clone();
     let handle = std::thread::spawn(move || {
-        let thread = NetworkThread::new(receiver);
+        let mut thread = NetworkThread::new(receiver);
         thread.run();
     });
     let res = AppLauncher::with_window(window::MainWindow.build())

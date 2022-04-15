@@ -30,10 +30,11 @@ use std::net::TcpStream;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use bincode::ErrorKind;
 use crossbeam_channel::bounded;
-use druid::Target;
+use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::thread::network_types::Command as NetCommand;
 use crate::thread::Command;
@@ -101,22 +102,52 @@ impl Worker {
     }
 }
 
+struct Connection {
+    channel: crossbeam_channel::Receiver<Result<NetCommand, String>>,
+    thread_handle: JoinHandle<()>,
+    exit_flag: Arc<AtomicBool>,
+    sink: ExtEventSink
+}
+
+impl Connection {
+    pub fn new(socket: TcpStream, sink: ExtEventSink) -> Self {
+        let (sender, receiver) = bounded(super::command::MAX_BUFFER);
+        let exit_flag = Arc::new(AtomicBool::new(false));
+        let bullshitrust = exit_flag.clone();
+        let thread_handle = std::thread::spawn(|| {
+            let mut worker = Worker::new(socket, sender, bullshitrust);
+            worker.run();
+        });
+        Self {
+            channel: receiver,
+            thread_handle,
+            exit_flag,
+            sink
+        }
+    }
+
+    pub fn end(self) {
+        while self.channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
+        self.exit_flag.store(true, Ordering::Relaxed);
+        self.thread_handle.join().unwrap();
+    }
+}
+
 pub struct NetworkThread {
     channel: Receiver<Command>,
-    flag: Arc<AtomicBool>
+    connection: Option<Connection>
 }
 
 impl NetworkThread {
     pub fn new(channel: Receiver<Command>) -> NetworkThread {
         NetworkThread {
             channel,
-            flag: Arc::new(AtomicBool::new(false))
+            connection: None
         }
     }
 
-    pub fn run(&self) {
+    pub fn run(&mut self) {
         let mut buffer = super::command::Buffer::new();
-        let mut network = None;
         loop {
             let cmd = match self.channel.try_recv() {
                 Ok(v) => Some(v),
@@ -130,10 +161,10 @@ impl NetworkThread {
             if let Some(cmd) = cmd {
                 match cmd {
                     Command::Connect { ip, sink } => {
-                        if network.is_some() {
+                        if self.connection.is_some() {
                             continue;
                         }
-                        let socket1 = match Worker::connect(ip) {
+                        let socket = match Worker::connect(ip) {
                             Ok(v) => v,
                             Err(e) => {
                                 sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
@@ -141,36 +172,25 @@ impl NetworkThread {
                             }
                         };
                         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
-                        let (sender, receiver) = bounded(super::command::MAX_BUFFER);
-                        let bullshitrust = self.flag.clone();
-                        let handle = std::thread::spawn(|| {
-                            let mut worker = Worker::new(socket1, sender, bullshitrust);
-                            worker.run();
-                        });
-                        network = Some((receiver, sink, handle));
+                        self.connection = Some(Connection::new(socket, sink));
                     },
                     Command::Terminate => break
                 }
             }
-            if let Some((channel, sink, _)) = &network {
-                if let Err(e) = buffer.try_submit(channel) {
-                    sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+            if let Some(connection) = &self.connection {
+                if let Err(e) = buffer.try_submit(&connection.channel) {
+                    connection.sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
                     break;
                 }
                 if let Some(batch) = buffer.fast_forward() {
-                    sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
+                    connection.sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
                 }
                 if buffer.should_terminate() {
-                    //TODO: Fixme: do not terminate this thread; instead just terminate the network thread.
-                    break;
+                    self.connection.take().map(|v| v.end());
                 }
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        if let Some((channel, _, handle)) = network {
-            while channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
-            self.flag.store(true, Ordering::Relaxed);
-            handle.join().unwrap();
-        }
+        self.connection.take().map(|v| v.end());
     }
 }
