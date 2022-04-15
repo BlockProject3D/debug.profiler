@@ -28,6 +28,7 @@
 
 mod core;
 mod command;
+pub mod network_types;
 
 pub use self::core::NetworkThread;
 pub use self::command::Command;

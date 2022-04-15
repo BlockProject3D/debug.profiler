@@ -37,7 +37,7 @@ use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
 use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
-use crate::network_types::{Command as NetCommand, Level, Value};
+use crate::thread::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
 
 pub struct Delegate {
@@ -181,7 +181,7 @@ impl Delegate {
             NetCommand::Terminate => {
                 state.status = "Target application has terminated!".into();
                 //Send message to kill network thread.
-                self.channel.send(crate::thread::Command::Terminate).unwrap();
+                //self.channel.send(crate::thread::Command::Terminate).unwrap();
                 //Turn off network handling.
                 self.networked = false;
             }

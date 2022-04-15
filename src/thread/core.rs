@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::VecDeque;
 use std::net::TcpStream;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -36,13 +35,8 @@ use bincode::ErrorKind;
 use crossbeam_channel::bounded;
 use druid::Target;
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
-use crate::network_types::Command as NetCommand;
+use crate::thread::network_types::Command as NetCommand;
 use crate::thread::Command;
-
-const MAX_BUFFER: usize = 1024;
-const MAX_SUB_BUFFER: usize = 512;
-// Only allow fast forwarding to 512 commands because druid is
-// an atrociously slow library.
 
 type WorkerChannel = crossbeam_channel::Sender<Result<NetCommand, String>>;
 
@@ -121,7 +115,7 @@ impl NetworkThread {
     }
 
     pub fn run(&self) {
-        let mut vec = VecDeque::with_capacity(MAX_BUFFER);
+        let mut buffer = super::command::Buffer::new();
         let mut network = None;
         loop {
             let cmd = match self.channel.try_recv() {
@@ -147,7 +141,7 @@ impl NetworkThread {
                             }
                         };
                         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
-                        let (sender, receiver) = bounded(MAX_BUFFER);
+                        let (sender, receiver) = bounded(super::command::MAX_BUFFER);
                         let bullshitrust = self.flag.clone();
                         let handle = std::thread::spawn(|| {
                             let mut worker = Worker::new(socket1, sender, bullshitrust);
@@ -159,39 +153,16 @@ impl NetworkThread {
                 }
             }
             if let Some((channel, sink, _)) = &network {
-                let mut flag = false;
-                while vec.len() < MAX_BUFFER {
-                    match channel.try_recv() {
-                        Ok(msg) => match msg {
-                            Ok(v) => {
-                                if v.is_terminate() {
-                                    flag = true;
-                                    break;
-                                }
-                                vec.push_back(v)
-                            },
-                            Err(e) => {
-                                sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
-                                flag = true;
-                                break;
-                            }
-                        },
-                        Err(_) => break
-                    }
-                }
-                if flag {
+                if let Err(e) = buffer.try_submit(channel) {
+                    sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
                     break;
                 }
-                if vec.len() >= 1 {
-                    let mut fast_forward = Vec::with_capacity(MAX_SUB_BUFFER);
-                    while fast_forward.len() < MAX_SUB_BUFFER {
-                        if let Some(net) = vec.pop_front() {
-                            fast_forward.push(net);
-                        } else {
-                            break;
-                        }
-                    }
-                    sink.submit_command(NETWORK_COMMAND, fast_forward.into_boxed_slice(), Target::Auto).unwrap();
+                if let Some(batch) = buffer.fast_forward() {
+                    sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
+                }
+                if buffer.should_terminate() {
+                    //TODO: Fixme: do not terminate this thread; instead just terminate the network thread.
+                    break;
                 }
             }
             std::thread::sleep(Duration::from_millis(50));

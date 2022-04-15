@@ -34,7 +34,6 @@ use crate::window::Window;
 
 pub const APP_NAME: &str = "BP3D Profiler";
 
-mod network_types;
 mod state;
 mod delegate;
 mod command;

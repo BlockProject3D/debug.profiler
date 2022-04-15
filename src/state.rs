@@ -30,7 +30,7 @@ use std::sync::Arc;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
-use crate::network_types::{Metadata, Value};
+use crate::thread::network_types::{Metadata, Value};
 use crate::window_map::WindowMap;
 
 #[derive(Clone, Data, Debug, Lens)]

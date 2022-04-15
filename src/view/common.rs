@@ -28,7 +28,7 @@
 
 use druid::{Color, Data, FontDescriptor, FontFamily, FontWeight, Widget};
 use druid::widget::{Flex, Label};
-use crate::network_types::Value;
+use crate::thread::network_types::Value;
 
 pub fn bold_font() -> FontDescriptor {
     FontDescriptor::new(FontFamily::SYSTEM_UI)

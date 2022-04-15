@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use druid::Selector;
-use crate::network_types::Command as NetCommand;
+use crate::thread::network_types::Command as NetCommand;
 use crate::window::Window;
 
 pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.error");

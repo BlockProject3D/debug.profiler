@@ -29,7 +29,7 @@
 use druid::{Color, Widget, WidgetExt};
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use crate::command::SPAWN_WINDOW;
-use crate::network_types::Level;
+use crate::thread::network_types::Level;
 use crate::state::State;
 use crate::view::common::small_bold_font;
 use crate::window::EventsWindow;
