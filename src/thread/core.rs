@@ -34,22 +34,15 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
 use bincode::ErrorKind;
 use crossbeam_channel::bounded;
-use druid::{ExtEventSink, Target};
+use druid::Target;
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::network_types::Command as NetCommand;
+use crate::thread::Command;
 
 const MAX_BUFFER: usize = 1024;
 const MAX_SUB_BUFFER: usize = 512;
 // Only allow fast forwarding to 512 commands because druid is
 // an atrociously slow library.
-
-pub enum Command {
-    Connect {
-        ip: String,
-        sink: ExtEventSink
-    },
-    Terminate
-}
 
 type WorkerChannel = crossbeam_channel::Sender<Result<NetCommand, String>>;
 
@@ -170,7 +163,13 @@ impl NetworkThread {
                 while vec.len() < MAX_BUFFER {
                     match channel.try_recv() {
                         Ok(msg) => match msg {
-                            Ok(v) => vec.push_back(v),
+                            Ok(v) => {
+                                if v.is_terminate() {
+                                    flag = true;
+                                    break;
+                                }
+                                vec.push_back(v)
+                            },
                             Err(e) => {
                                 sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
                                 flag = true;
