@@ -106,7 +106,8 @@ struct Connection {
     channel: crossbeam_channel::Receiver<Result<NetCommand, String>>,
     thread_handle: JoinHandle<()>,
     exit_flag: Arc<AtomicBool>,
-    sink: ExtEventSink
+    sink: ExtEventSink,
+    buffer: super::command::Buffer
 }
 
 impl Connection {
@@ -122,7 +123,8 @@ impl Connection {
             channel: receiver,
             thread_handle,
             exit_flag,
-            sink
+            sink,
+            buffer: super::command::Buffer::new()
         }
     }
 
@@ -147,7 +149,6 @@ impl NetworkThread {
     }
 
     pub fn run(&mut self) {
-        let mut buffer = super::command::Buffer::new();
         loop {
             let cmd = match self.channel.try_recv() {
                 Ok(v) => Some(v),
@@ -181,15 +182,15 @@ impl NetworkThread {
                     }
                 }
             }
-            if let Some(connection) = &self.connection {
-                if let Err(e) = buffer.try_submit(&connection.channel) {
+            if let Some(connection) = &mut self.connection {
+                if let Err(e) = connection.buffer.try_submit(&connection.channel) {
                     connection.sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
                     break;
                 }
-                if let Some(batch) = buffer.fast_forward() {
+                if let Some(batch) = connection.buffer.fast_forward() {
                     connection.sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
                 }
-                if buffer.should_terminate() {
+                if connection.buffer.should_terminate() {
                     self.connection.take().map(|v| v.end());
                 }
             }
