@@ -36,6 +36,7 @@ pub enum Command {
         ip: String,
         sink: ExtEventSink
     },
+    Disconnect,
     Terminate
 }
 

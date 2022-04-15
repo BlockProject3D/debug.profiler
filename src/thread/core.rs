@@ -174,7 +174,11 @@ impl NetworkThread {
                         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
                         self.connection = Some(Connection::new(socket, sink));
                     },
-                    Command::Terminate => break
+                    Command::Terminate => break,
+                    Command::Disconnect => { // Can't be inline because rust cannot accept
+                        // Option<()> as ().
+                        self.connection.take().map(|v| v.end());
+                    }
                 }
             }
             if let Some(connection) = &self.connection {
