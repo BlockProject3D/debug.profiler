@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use druid::{commands, Data, Env, LocalizedString, Menu, MenuItem, SysMods, WindowId};
-use crate::command::SPAWN_WINDOW;
+use crate::command::{DISCONNECT, NEW, SPAWN_WINDOW};
 use crate::state::State;
 use crate::window::{AboutWindow, PreferencesWindow};
 
@@ -79,9 +79,9 @@ fn build_app_menu() -> Menu<State> {
 fn build_connection_menu() -> Menu<State> {
     Menu::new("Connection")
         //Closes the current connection.
-        .entry(MenuItem::new("Close"))
+        .entry(MenuItem::new("Close").command(DISCONNECT))
         //Recreates the main connection window.
-        .entry(MenuItem::new("New"))
+        .entry(MenuItem::new("New").command(NEW))
 }
 
 pub fn build_basic_menu(_: Option<WindowId>, _: &State, _: &Env) -> Menu<State> {

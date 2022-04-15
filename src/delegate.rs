@@ -35,7 +35,7 @@ use druid::im::Vector;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
-use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR, SELECT_NODE, SPAWN_WINDOW};
+use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, DISCONNECT, NETWORK_COMMAND, NETWORK_ERROR, NEW, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
 use crate::thread::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
@@ -203,6 +203,15 @@ impl AppDelegate<State> for Delegate {
             state.status = "Connecting...".into();
             let ip = std::mem::replace(&mut state.address, String::new());
             self.channel.send(crate::thread::Command::Connect { ip, sink: ctx.get_external_handle() }).unwrap();
+            return Handled::Yes;
+        } else if cmd.is(DISCONNECT) {
+            state.status = "Disconnected from target application!".into();
+            self.channel.send(crate::thread::Command::Disconnect).unwrap();
+            return Handled::Yes;
+        } else if cmd.is(NEW) {
+            self.channel.send(crate::thread::Command::Disconnect).unwrap();
+            state.connected = false;
+            state.status = "".into();
             return Handled::Yes;
         } else if cmd.is(CONNECTION_SUCCESS) {
             state.status = "Ready.".into();

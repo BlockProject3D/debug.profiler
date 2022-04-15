@@ -38,6 +38,8 @@ pub const NETWORK_ERROR: Selector<String> = Selector::new("network.error");
 pub const NETWORK_COMMAND: Selector<Box<[NetCommand]>> = Selector::new("network.command");
 
 pub const CONNECT: Selector = Selector::new("network.connect");
+pub const DISCONNECT: Selector = Selector::new("network.disconnect");
+pub const NEW: Selector = Selector::new("network.new");
 
 pub const SELECT_NODE: Selector<u64> = Selector::new("node.select");
 
