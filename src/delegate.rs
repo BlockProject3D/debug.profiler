@@ -210,6 +210,10 @@ impl AppDelegate<State> for Delegate {
             return Handled::Yes;
         } else if cmd.is(NEW) {
             self.channel.send(crate::thread::Command::Disconnect).unwrap();
+            state.selected = 0;
+            state.address = "".into();
+            state.tree = Span::default();
+            state.tree_data = druid::im::HashMap::new();
             state.connected = false;
             state.status = "".into();
             return Handled::Yes;
