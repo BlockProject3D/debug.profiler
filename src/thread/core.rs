@@ -31,14 +31,14 @@ use std::time::Duration;
 use crate::thread::Command;
 use crate::thread::connection::Connection;
 
-pub struct NetworkThread {
+pub struct BackgroundThread {
     channel: Receiver<Command>,
     connection: Option<Connection>
 }
 
-impl NetworkThread {
-    pub fn new(channel: Receiver<Command>) -> NetworkThread {
-        NetworkThread {
+impl BackgroundThread {
+    pub fn new(channel: Receiver<Command>) -> BackgroundThread {
+        BackgroundThread {
             channel,
             connection: None
         }

@@ -31,5 +31,5 @@ mod command;
 pub mod network_types;
 mod connection;
 
-pub use self::core::NetworkThread;
+pub use self::core::BackgroundThread;
 pub use self::command::Command;

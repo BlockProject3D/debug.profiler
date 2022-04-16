@@ -29,7 +29,7 @@
 use std::sync::mpsc::channel;
 use druid::{AppLauncher, PlatformError};
 use view::theme;
-use crate::thread::NetworkThread;
+use crate::thread::BackgroundThread;
 use crate::window::Window;
 
 pub const APP_NAME: &str = "BP3D Profiler";
@@ -46,7 +46,7 @@ fn main() -> Result<(), PlatformError> {
     let (sender, receiver) = channel();
     let exit_channel = sender.clone();
     let handle = std::thread::spawn(move || {
-        let mut thread = NetworkThread::new(receiver);
+        let mut thread = BackgroundThread::new(receiver);
         thread.run();
     });
     let res = AppLauncher::with_window(window::MainWindow.build())
