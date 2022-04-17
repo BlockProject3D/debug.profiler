@@ -35,6 +35,7 @@ use bincode::ErrorKind;
 use crossbeam_channel::bounded;
 use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
+use crate::thread::NET_READ_DURATION;
 use super::network_types::Command as NetCommand;
 
 type WorkerChannel = crossbeam_channel::Sender<Result<NetCommand, String>>;
@@ -56,7 +57,7 @@ impl Worker {
 
     pub fn connect(ip: String) -> Result<TcpStream, String> {
         let socket = TcpStream::connect(&ip).map_err(|e| e.to_string())?;
-        socket.set_read_timeout(Some(Duration::from_millis(500))).map_err(|e| e.to_string())?;
+        socket.set_read_timeout(Some(NET_READ_DURATION)).map_err(|e| e.to_string())?;
         Ok(socket)
     }
 

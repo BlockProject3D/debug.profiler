@@ -32,6 +32,8 @@ use view::theme;
 use crate::thread::BackgroundThread;
 use crate::window::Window;
 
+pub const PROTOCOL_VERSION: u8 = 0;
+pub const DEFAULT_PORT: u16 = 4026;
 pub const APP_NAME: &str = "BP3D Profiler";
 
 mod state;

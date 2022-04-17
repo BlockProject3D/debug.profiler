@@ -180,8 +180,6 @@ impl Delegate {
             }
             NetCommand::Terminate => {
                 state.status = "Target application has terminated!".into();
-                //Send message to kill network thread.
-                //self.channel.send(crate::thread::Command::Terminate).unwrap();
                 //Turn off network handling.
                 self.networked = false;
             }
@@ -204,12 +202,10 @@ impl AppDelegate<State> for Delegate {
             let ip = std::mem::replace(&mut state.address, String::new());
             self.channel.send(crate::thread::Command::Connect { ip, sink: ctx.get_external_handle() }).unwrap();
             return Handled::Yes;
-        } else if cmd.is(DISCONNECT) {
-            state.status = "Disconnected from target application!".into();
-            self.channel.send(crate::thread::Command::Disconnect).unwrap();
-            return Handled::Yes;
         } else if cmd.is(NEW) {
             self.channel.send(crate::thread::Command::Disconnect).unwrap();
+            //Turn off network handling.
+            self.networked = false;
             state.selected = 0;
             state.address = "".into();
             state.tree = Span::default();
@@ -249,6 +245,15 @@ impl AppDelegate<State> for Delegate {
             }
             if let Some(err) = cmd.get(NETWORK_ERROR) {
                 state.status = format!("Network error: {}", err);
+                //Turn off network handling.
+                self.networked = false;
+                return Handled::Yes;
+            }
+            if cmd.is(DISCONNECT) {
+                state.status = "Disconnected from target application!".into();
+                self.channel.send(crate::thread::Command::Disconnect).unwrap();
+                //Turn off network handling.
+                self.networked = false;
                 return Handled::Yes;
             }
         }

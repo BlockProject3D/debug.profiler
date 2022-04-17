@@ -28,19 +28,22 @@
 
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
+use crate::thread::auto_discover::AutoDiscoveryConnection;
 use crate::thread::Command;
 use crate::thread::connection::Connection;
 
 pub struct BackgroundThread {
     channel: Receiver<Command>,
-    connection: Option<Connection>
+    connection: Option<Connection>,
+    auto_discovery: Option<AutoDiscoveryConnection>
 }
 
 impl BackgroundThread {
     pub fn new(channel: Receiver<Command>) -> BackgroundThread {
         BackgroundThread {
             channel,
-            connection: None
+            connection: None,
+            auto_discovery: None
         }
     }
 
@@ -62,17 +65,32 @@ impl BackgroundThread {
                             continue;
                         }
                         self.connection = Connection::new(ip, sink);
+                        if self.connection.is_some() {
+                            //If we have a new connection, terminate auto-discovery service.
+                            self.auto_discovery.take().map(|v| v.end());
+                        }
                     },
                     Command::Terminate => break,
                     Command::Disconnect => { // Can't be inline because rust cannot accept
                         // Option<()> as ().
                         self.connection.take().map(|v| v.end());
                     }
+                    Command::StartAutoDiscovery(sink) => {
+                        if self.connection.is_some() {
+                            //If we are already connected skip...
+                            continue;
+                        }
+                        self.auto_discovery = AutoDiscoveryConnection::new(sink);
+                    }
                 }
             }
+            //Update connections.
             self.connection = self.connection.take().and_then(|v| v.step());
+            self.auto_discovery = self.auto_discovery.take().and_then(|v| v.step());
             std::thread::sleep(Duration::from_millis(50));
         }
+        //Terminate all connections.
         self.connection.take().map(|v| v.end());
+        self.auto_discovery.take().map(|v| v.end());
     }
 }
