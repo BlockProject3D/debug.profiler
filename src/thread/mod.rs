@@ -31,6 +31,7 @@ mod command;
 pub mod network_types;
 mod connection;
 mod auto_discover;
+mod base;
 
 use std::time::Duration;
 const NET_READ_DURATION: Duration = Duration::from_millis(500);

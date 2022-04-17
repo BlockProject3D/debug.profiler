@@ -27,31 +27,22 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::net::TcpStream;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::JoinHandle;
-use std::time::Duration;
 use bincode::ErrorKind;
-use crossbeam_channel::bounded;
+use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
+use crate::thread::base::{BaseWorker, Run};
 use crate::thread::NET_READ_DURATION;
 use super::network_types::Command as NetCommand;
 
-type WorkerChannel = crossbeam_channel::Sender<Result<NetCommand, String>>;
-
 struct Worker {
     stream: TcpStream,
-    flag: Arc<AtomicBool>,
-    channel: WorkerChannel
 }
 
 impl Worker {
-    pub fn new(stream: TcpStream, channel: WorkerChannel, flag: Arc<AtomicBool>) -> Worker {
+    pub fn new(stream: TcpStream) -> Worker {
         Worker {
-            stream,
-            channel,
-            flag
+            stream
         }
     }
 
@@ -76,41 +67,44 @@ impl Worker {
         }
     }
 
-    pub fn read_command(&mut self) -> bool {
+    pub fn read_command(&mut self, base: &BaseWorker<Internal>) -> bool {
         match self.try_read_command() {
             Ok(v) => {
                 if let Some(v) = v {
-                    self.channel.send(Ok(v)).unwrap();
+                    base.send(Ok(v));
                     return false
                 }
             },
             Err(e) => {
-                self.channel.send(Err(e)).unwrap();
+                base.send(Err(e));
                 return true
             }
         }
         false
     }
+}
 
-    pub fn run(&mut self) {
+impl Run<Internal> for Worker {
+    fn run(&mut self, base: &BaseWorker<Internal>) {
         loop {
-            if self.read_command() || self.flag.load(Ordering::Relaxed) {
+            if self.read_command(base) || base.should_exit() {
                 break
             }
         }
     }
 }
 
-pub struct Connection {
-    channel: crossbeam_channel::Receiver<Result<NetCommand, String>>,
-    thread_handle: JoinHandle<()>,
-    exit_flag: Arc<AtomicBool>,
-    sink: ExtEventSink,
+struct Internal {
     buffer: super::command::Buffer
 }
 
-impl Connection {
-    pub fn new(ip: String, sink: ExtEventSink) -> Option<Self> {
+impl super::base::Connection for Internal {
+    type Message = Result<NetCommand, String>;
+    type Worker = Worker;
+    type Parameters = String;
+    const MAX_MESSAGES: usize = super::command::MAX_BUFFER;
+
+    fn new(sink: &ExtEventSink, ip: String) -> Option<(Self, Self::Worker)> {
         let socket = match Worker::connect(ip) {
             Ok(v) => v,
             Err(e) => {
@@ -119,41 +113,26 @@ impl Connection {
             }
         };
         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
-        let (sender, receiver) = bounded(super::command::MAX_BUFFER);
-        let exit_flag = Arc::new(AtomicBool::new(false));
-        let bullshitrust = exit_flag.clone();
-        let thread_handle = std::thread::spawn(|| {
-            let mut worker = Worker::new(socket, sender, bullshitrust);
-            worker.run();
-        });
-        Some(Self {
-            channel: receiver,
-            thread_handle,
-            exit_flag,
-            sink,
+        let this = Internal {
             buffer: super::command::Buffer::new()
-        })
+        };
+        let worker = Worker::new(socket);
+        Some((this, worker))
     }
 
-    pub fn end(self) {
-        while self.channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
-        self.exit_flag.store(true, Ordering::Relaxed);
-        self.thread_handle.join().unwrap();
-    }
-
-    pub fn step(mut self) -> Option<Self> {
-        if let Err(e) = self.buffer.try_submit(&self.channel) {
-            self.sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
-            self.end();
-            return None;
+    fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool {
+        if let Err(e) = self.buffer.try_submit(channel) {
+            sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+            return false;
         }
         if let Some(batch) = self.buffer.fast_forward() {
-            self.sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
+            sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
         }
         if self.buffer.should_terminate() {
-            self.end();
-            return None;
+            return false;
         }
-        return Some(self);
+        true
     }
 }
+
+super::base::hack_rust_garbage_private_rule!(Connection<String, Internal>);

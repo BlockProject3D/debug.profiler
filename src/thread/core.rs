@@ -64,7 +64,7 @@ impl BackgroundThread {
                         if self.connection.is_some() {
                             continue;
                         }
-                        self.connection = Connection::new(ip, sink);
+                        self.connection = Connection::new(sink, ip);
                         if self.connection.is_some() {
                             //If we have a new connection, terminate auto-discovery service.
                             self.auto_discovery.take().map(|v| v.end());
@@ -80,7 +80,7 @@ impl BackgroundThread {
                             //If we are already connected skip...
                             continue;
                         }
-                        self.auto_discovery = AutoDiscoveryConnection::new(sink);
+                        self.auto_discovery = AutoDiscoveryConnection::new(sink, ());
                     }
                 }
             }

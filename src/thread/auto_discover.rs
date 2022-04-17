@@ -28,13 +28,11 @@
 
 use std::io::ErrorKind;
 use std::net::{IpAddr, Ipv4Addr, UdpSocket};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::JoinHandle;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
 use crate::{DEFAULT_PORT, PROTOCOL_VERSION};
 use crate::command::{NETWORK_PEER, NETWORK_PEER_ERR};
+use crate::thread::base::{BaseWorker, Connection, Run};
 use crate::thread::NET_READ_DURATION;
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
@@ -51,21 +49,17 @@ pub struct Peer {
 }
 
 struct Worker {
-    channel: Sender<Result<Peer, String>>,
     socket: UdpSocket,
-    exit_flag: Arc<AtomicBool>
 }
 
 impl Worker {
-    pub fn new(channel: Sender<Result<Peer, String>>, exit_flag: Arc<AtomicBool>) -> std::io::Result<Worker> {
+    pub fn new() -> std::io::Result<Worker> {
         // Create the UDP connection that will be used to receive auto-discover LAN broadcast
         // packets.
         let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, DEFAULT_PORT))?;
         socket.set_read_timeout(Some(NET_READ_DURATION))?;
         Ok(Worker {
-            channel,
             socket,
-            exit_flag
         })
     }
 
@@ -96,56 +90,46 @@ impl Worker {
             }
         }
     }
+}
 
-    pub fn run(&self) {
+impl Run<Internal> for Worker {
+    fn run(&mut self, base: &BaseWorker<Internal>) {
         loop {
-            if self.exit_flag.load(Ordering::Relaxed) {
+            if base.should_exit() {
                 break;
             }
             if let Some(res) = self.try_read_peer().transpose() {
-                self.channel.send(res).unwrap();
+                base.send(res);
             }
         }
     }
 }
 
-pub struct AutoDiscoveryConnection {
-    channel: Receiver<Result<Peer, String>>,
-    thread_handle: JoinHandle<()>,
-    exit_flag: Arc<AtomicBool>,
-    sink: ExtEventSink
-}
+struct Internal;
 
-impl AutoDiscoveryConnection {
-    pub fn new(sink: ExtEventSink) -> Option<AutoDiscoveryConnection> {
-        let (sender, receiver) = bounded(MAX_BUFFER);
-        let exit_flag = Arc::new(AtomicBool::new(false));
-        let thread = Worker::new(sender, exit_flag.clone()).ok()?;
-        let thread_handle = std::thread::spawn(move || thread.run());
-        Some(AutoDiscoveryConnection {
-            channel: receiver,
-            exit_flag,
-            thread_handle,
-            sink
-        })
+impl Connection for Internal {
+    type Message = Result<Peer, String>;
+    type Worker = Worker;
+    type Parameters = ();
+    const MAX_MESSAGES: usize = MAX_BUFFER;
+
+    fn new(_: &ExtEventSink, _: Self::Parameters) -> Option<(Self, Self::Worker)> {
+        let worker = Worker::new().ok()?;
+        Some((Internal, worker))
     }
 
-    pub fn step(self) -> Option<Self> {
-        while let Ok(v) = self.channel.try_recv() {
+    fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool {
+        while let Ok(v) = channel.try_recv() {
             match v {
-                Ok(v) => self.sink.submit_command(NETWORK_PEER, v, Target::Auto).unwrap(),
+                Ok(v) => sink.submit_command(NETWORK_PEER, v, Target::Auto).unwrap(),
                 Err(e) => {
-                    self.sink.submit_command(NETWORK_PEER_ERR, e, Target::Auto).unwrap();
-                    return None;
+                    sink.submit_command(NETWORK_PEER_ERR, e, Target::Auto).unwrap();
+                    return false;
                 }
             }
         }
-        Some(self)
-    }
-
-    pub fn end(self) {
-        while self.channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
-        self.exit_flag.store(true, Ordering::Relaxed);
-        self.thread_handle.join().unwrap();
+        return true;
     }
 }
+
+super::base::hack_rust_garbage_private_rule!(AutoDiscoveryConnection<(), Internal>);
