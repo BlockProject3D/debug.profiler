@@ -38,4 +38,3 @@ const NET_READ_DURATION: Duration = Duration::from_millis(500);
 
 pub use self::core::BackgroundThread;
 pub use self::command::Command;
-pub use self::auto_discover::Peer;

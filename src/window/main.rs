@@ -28,7 +28,8 @@
 
 use druid::{Color, Env, EventCtx, UnitPoint, Widget, WidgetExt, WindowDesc};
 use druid::widget::{Align, Button, Flex, Label, Padding, TextBox, ViewSwitcher};
-use crate::APP_NAME;
+use druid_widget_nursery::{ListSelect, WidgetExt as _};
+use crate::{APP_NAME, DEFAULT_PORT};
 use crate::command::CONNECT;
 use crate::state::State;
 use crate::view::main::view_main;
@@ -38,6 +39,29 @@ use crate::window::{Destroy, Window};
 
 fn handle_connect(ctx: &mut EventCtx, _: &mut State, _: &Env) {
     ctx.submit_command(CONNECT);
+}
+
+fn view_auto_discover() -> impl Widget<State> {
+    ViewSwitcher::new(
+        |data: &State, _| data.discovered_peers.clone(),
+        |peers, _, _| {
+            let flex = Flex::column()
+                .with_child(Label::new("Auto-discovered targets:"))
+                .with_child(
+                    ListSelect::new(peers.iter().map(|v| (v.name.clone(), Some(v.addr))))
+                        .lens(State::selected_peer)
+                        .on_change(|_, _, state, _| {
+                            if let Some(peer) = state.selected_peer {
+                                state.address = peer.to_string() + ":" + &DEFAULT_PORT.to_string();
+                            }
+                        })
+                        .scroll()
+                        .fix_size(200.0, 200.0)
+                        .border(Color::BLACK, 0.1)
+                );
+            Box::new(flex)
+        }
+    )
 }
 
 fn main_window() -> impl Widget<State> {
@@ -53,6 +77,8 @@ fn main_window() -> impl Widget<State> {
                 .with_child(TextBox::new().lens(State::address))
                 .with_spacer(5.0)
                 .with_child(Button::new("Connect").on_click(handle_connect).padding(5.0))
+                .with_spacer(15.0)
+                .with_child(view_auto_discover())
         };
         Box::new(Padding::new(10.0, Flex::column()
             .with_flex_child(Align::centered(flex.expand()), 90.0)

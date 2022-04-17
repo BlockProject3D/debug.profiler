@@ -27,8 +27,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use druid::Selector;
+use crate::state::Peer;
 use crate::thread::network_types::Command as NetCommand;
-use crate::thread::Peer;
 use crate::window::Window;
 
 // Profiler connection control messages.

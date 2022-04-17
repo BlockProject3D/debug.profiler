@@ -32,7 +32,6 @@ use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
 use crate::thread::network_types::{Metadata, Value};
-use crate::thread::Peer;
 use crate::window_map::WindowMap;
 
 #[derive(Clone, Data, Debug, Lens)]
@@ -214,7 +213,7 @@ pub struct Preferences {
     pub inherit: bool
 }
 
-#[derive(Clone, Data, Lens)]
+#[derive(Clone, Data)]
 pub struct Peer {
     pub name: String,
     pub addr: IpAddr
@@ -231,7 +230,8 @@ pub struct State {
     pub event_windows: WindowMap<StateEvents>,
     pub history_windows: WindowMap<StateHistory>,
     pub preferences: Preferences,
-    pub discovered_peers: Vector<Peer>
+    pub discovered_peers: Vector<Peer>,
+    pub selected_peer: Option<IpAddr>
 }
 
 impl State {
