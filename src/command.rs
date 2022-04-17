@@ -47,6 +47,7 @@ pub const NETWORK_COMMAND: Selector<Box<[NetCommand]>> = Selector::new("network.
 // Auto-discovery messages.
 pub const NETWORK_PEER: Selector<Peer> = Selector::new("network.peer");
 pub const NETWORK_PEER_ERR: Selector<String> = Selector::new("network.peer.error");
+pub const DISCOVER_START: Selector = Selector::new("network.peer.start");
 
 // GUI.
 pub const SELECT_NODE: Selector<u64> = Selector::new("node.select");

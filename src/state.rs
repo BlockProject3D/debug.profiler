@@ -26,11 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::net::IpAddr;
 use std::sync::Arc;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
 use crate::thread::network_types::{Metadata, Value};
+use crate::thread::Peer;
 use crate::window_map::WindowMap;
 
 #[derive(Clone, Data, Debug, Lens)]
@@ -212,6 +214,12 @@ pub struct Preferences {
     pub inherit: bool
 }
 
+#[derive(Clone, Data, Lens)]
+pub struct Peer {
+    pub name: String,
+    pub addr: IpAddr
+}
+
 #[derive(Clone, Data, Lens, Default)]
 pub struct State {
     pub tree: Span,
@@ -222,7 +230,8 @@ pub struct State {
     pub selected: u64,
     pub event_windows: WindowMap<StateEvents>,
     pub history_windows: WindowMap<StateHistory>,
-    pub preferences: Preferences
+    pub preferences: Preferences,
+    pub discovered_peers: Vector<Peer>
 }
 
 impl State {

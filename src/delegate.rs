@@ -35,7 +35,7 @@ use druid::im::Vector;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
-use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, DISCONNECT, NETWORK_COMMAND, NETWORK_ERROR, NEW, SELECT_NODE, SPAWN_WINDOW};
+use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, DISCONNECT, DISCOVER_START, NETWORK_COMMAND, NETWORK_ERROR, NETWORK_PEER, NETWORK_PEER_ERR, NEW, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
 use crate::thread::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
@@ -197,11 +197,6 @@ impl AppDelegate<State> for Delegate {
         if cmd.is(CLOSE_WINDOW) && self.close_window() {
             ctx.submit_command(QUIT_APP);
             return Handled::Yes;
-        } else if cmd.is(CONNECT) {
-            state.status = "Connecting...".into();
-            let ip = std::mem::replace(&mut state.address, String::new());
-            self.channel.send(crate::thread::Command::Connect { ip, sink: ctx.get_external_handle() }).unwrap();
-            return Handled::Yes;
         } else if cmd.is(NEW) {
             self.channel.send(crate::thread::Command::Disconnect).unwrap();
             //Turn off network handling.
@@ -212,15 +207,6 @@ impl AppDelegate<State> for Delegate {
             state.tree_data = druid::im::HashMap::new();
             state.connected = false;
             state.status = "".into();
-            return Handled::Yes;
-        } else if cmd.is(CONNECTION_SUCCESS) {
-            state.status = "Ready.".into();
-            state.connected = true;
-            self.networked = true;
-            return Handled::Yes;
-        }
-        if let Some(err) = cmd.get(CONNECTION_ERROR) {
-            state.status = format!("Connection error: {}", err);
             return Handled::Yes;
         }
         if let Some(id) = cmd.get(SELECT_NODE) {
@@ -254,6 +240,34 @@ impl AppDelegate<State> for Delegate {
                 self.channel.send(crate::thread::Command::Disconnect).unwrap();
                 //Turn off network handling.
                 self.networked = false;
+                return Handled::Yes;
+            }
+        } else {
+            if let Some(peer) = cmd.get(NETWORK_PEER) {
+                state.discovered_peers.push_back(peer.clone());
+                return Handled::Yes;
+            }
+            if let Some(err) = cmd.get(NETWORK_PEER_ERR) {
+                state.status = format!("Auto discovery service error: {}", err);
+                return Handled::Yes;
+            }
+            if let Some(err) = cmd.get(CONNECTION_ERROR) {
+                state.status = format!("Connection error: {}", err);
+                return Handled::Yes;
+            }
+            if cmd.is(DISCOVER_START) {
+                self.channel.send(crate::thread::Command::StartAutoDiscovery(ctx.get_external_handle())).unwrap();
+                return Handled::Yes;
+            } else if cmd.is(CONNECT) {
+                state.status = "Connecting...".into();
+                let ip = std::mem::replace(&mut state.address, String::new());
+                self.channel.send(crate::thread::Command::Connect { ip, sink: ctx.get_external_handle() }).unwrap();
+                return Handled::Yes;
+            } else if cmd.is(CONNECTION_SUCCESS) {
+                state.status = "Ready.".into();
+                state.connected = true;
+                state.discovered_peers.clear();
+                self.networked = true;
                 return Handled::Yes;
             }
         }

@@ -36,7 +36,7 @@ use crate::thread::NET_READ_DURATION;
 use super::network_types::Command as NetCommand;
 
 struct Worker {
-    stream: TcpStream,
+    stream: TcpStream
 }
 
 impl Worker {

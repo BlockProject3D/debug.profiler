@@ -27,11 +27,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::io::ErrorKind;
-use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+use std::net::{Ipv4Addr, UdpSocket};
 use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
 use crate::{DEFAULT_PORT, PROTOCOL_VERSION};
 use crate::command::{NETWORK_PEER, NETWORK_PEER_ERR};
+use crate::state::Peer;
 use crate::thread::base::{BaseWorker, Connection, Run};
 use crate::thread::NET_READ_DURATION;
 
@@ -43,13 +44,8 @@ const MAX_BUFFER: usize = 128;
 
 const PROTOCOL_SIGNATURE: u8 = b'B';
 
-pub struct Peer {
-    pub name: String,
-    pub addr: IpAddr
-}
-
 struct Worker {
-    socket: UdpSocket,
+    socket: UdpSocket
 }
 
 impl Worker {
