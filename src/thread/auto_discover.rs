@@ -30,6 +30,7 @@ use std::io::ErrorKind;
 use std::net::{Ipv4Addr, UdpSocket};
 use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
+use druid::im::HashSet;
 use crate::{DEFAULT_PORT, PROTOCOL_VERSION};
 use crate::command::{NETWORK_PEER, NETWORK_PEER_ERR};
 use crate::state::Peer;
@@ -37,15 +38,16 @@ use crate::thread::base::{BaseWorker, Connection, Run};
 use crate::thread::NET_READ_DURATION;
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
-const NAME_MAX_CHARS: usize = 128;
+const NAME_MAX_CHARS: usize = 126;
 
 // The maximum number of pending received broadcast packets.
-const MAX_BUFFER: usize = 128;
+const MAX_BUFFER: usize = 64;
 
 const PROTOCOL_SIGNATURE: u8 = b'B';
 
 struct Worker {
-    socket: UdpSocket
+    socket: UdpSocket,
+    set: HashSet<String>
 }
 
 impl Worker {
@@ -56,24 +58,32 @@ impl Worker {
         socket.set_read_timeout(Some(NET_READ_DURATION))?;
         Ok(Worker {
             socket,
+            set: HashSet::new()
         })
     }
 
-    pub fn try_read_peer(&self) -> Result<Option<Peer>, String> {
+    pub fn try_read_peer(&mut self) -> Result<Option<Peer>, String> {
         let mut buffer: [u8; NAME_MAX_CHARS + 2] = [0; NAME_MAX_CHARS + 2];
         match self.socket.recv_from(&mut buffer) {
             Ok((len, peer_addr)) => {
-                if len <= 2 || buffer[0] != PROTOCOL_SIGNATURE || buffer[1] != PROTOCOL_VERSION {
+                if len != NAME_MAX_CHARS + 2 || buffer[0] != PROTOCOL_SIGNATURE
+                    || buffer[1] != PROTOCOL_VERSION {
                     // The message is not valid for this application.
                     return Ok(None);
                 }
-                match std::str::from_utf8(&buffer[2..len]) {
+                let str = buffer[2..].split(|v| *v == 0).next().unwrap_or(&[]);
+                match std::str::from_utf8(str) {
                     Ok(name) => {
-                        let peer = Peer {
-                            addr: peer_addr.ip(),
-                            name: name.into()
-                        };
-                        Ok(Some(peer))
+                        if self.set.contains(name) {
+                            Ok(None)
+                        } else {
+                            let peer = Peer {
+                                addr: peer_addr.ip(),
+                                name: name.into()
+                            };
+                            self.set.insert(name.into());
+                            Ok(Some(peer))
+                        }
                     }
                     Err(_) => Ok(None)
                 }
