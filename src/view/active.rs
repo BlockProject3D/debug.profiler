@@ -125,7 +125,7 @@ pub fn view_active() -> impl Widget<State> {
         .with_child(
             Button::new("View events")
                 .on_click(|ctx, data: &mut State, _| {
-                    let events = data.tree_data.get(&data.selected).unwrap().current.events.clone();
+                    let events = data.get_field(|v| v.current.events.clone());
                     if let Some(window) = EventsWindow::new(data, events) {
                         ctx.submit_command(SPAWN_WINDOW.with(Box::new(window)));
                     }
@@ -135,7 +135,7 @@ pub fn view_active() -> impl Widget<State> {
         .with_child(
             Button::new("View history")
                 .on_click(|ctx, data: &mut State, _| {
-                    let history = data.tree_data.get(&data.selected).unwrap().history.clone();
+                    let history = data.get_field(|v| v.history.clone());
                     if let Some(window) = HistoryWindow::new(data, history) {
                         ctx.submit_command(SPAWN_WINDOW.with(Box::new(window)));
                     }
