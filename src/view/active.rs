@@ -31,7 +31,7 @@ use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use crate::command::SPAWN_WINDOW;
 use crate::thread::network_types::Level;
 use crate::state::State;
-use crate::view::common::small_bold_font;
+use crate::view::common::{COLOR_DEBUG, COLOR_ERR, COLOR_INFO, COLOR_TRACE, COLOR_WARN, small_bold_font};
 use crate::window::EventsWindow;
 use crate::window::HistoryWindow;
 
@@ -46,11 +46,11 @@ pub fn view_active() -> impl Widget<State> {
         |data: &State, _| data.get_field(|v| v.metadata.clone()),
         |metadata, _, _| {
             Box::new(match metadata.level {
-                Level::Trace => Label::new("Trace"),
-                Level::Debug => Label::new("Debug").with_text_color(Color::rgb8(0, 255, 255)),
-                Level::Info => Label::new("Info").with_text_color(Color::rgb8(0, 255, 0)),
-                Level::Warning => Label::new("Debug").with_text_color(Color::rgb8(255, 255, 0)),
-                Level::Error => Label::new("Debug").with_text_color(Color::rgb8(255, 0, 0))
+                Level::Trace => Label::new("Trace").with_text_color(COLOR_TRACE),
+                Level::Debug => Label::new("Debug").with_text_color(COLOR_DEBUG),
+                Level::Info => Label::new("Info").with_text_color(COLOR_INFO),
+                Level::Warning => Label::new("Warning").with_text_color(COLOR_WARN),
+                Level::Error => Label::new("Error").with_text_color(COLOR_ERR)
             })
     });
     let name = ViewSwitcher::new(
