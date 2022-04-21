@@ -31,12 +31,11 @@ use std::sync::Arc;
 use std::sync::mpsc::Sender;
 use druid::{AppDelegate, Command, DelegateCtx, Env, Handled, Target, WindowId};
 use druid::commands::{CLOSE_WINDOW, QUIT_APP};
-use druid::im::Vector;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
 use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, DISCONNECT, DISCOVER_START, NETWORK_COMMAND, NETWORK_ERROR, NETWORK_PEER, NETWORK_PEER_ERR, NEW, SELECT_NODE, SPAWN_WINDOW};
-use crate::state::{Event, Span, SpanData, SpanLogEntry, State};
+use crate::state::{Event, Span, SpanData, State};
 use crate::thread::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
 
@@ -61,40 +60,35 @@ impl Delegate {
         match cmd {
             NetCommand::SpanAlloc { id, metadata } => {
                 let metadata = Arc::new(metadata.clone());
-                state.tree_data.insert(*id, SpanData {
-                    active: false,
-                    dropped: false,
-                    metadata: metadata.clone(),
-                    current: SpanLogEntry::new(),
-                    history: Vector::new()
-                });
-                state.tree.add_node(Span::with_metadata(*id, metadata));
+                state.tree_data.insert(id.id, SpanData::new(metadata.clone()));
+                state.tree_data.get_mut(&id.id).unwrap().new_instance(id.instance);
+                state.tree.add_node(Span::with_metadata(id.id, metadata));
             }
             NetCommand::SpanInit { span, parent, message, value_set } => {
                 if let Some(parent) = parent {
-                    state.tree.relocate_node(*span, *parent);
+                    state.tree.relocate_node(span.id, parent.id);
                 }
-                let data = state.tree_data.get_mut(span).unwrap();
+                let data = state.tree_data.get_mut(&span.id).unwrap();
                 if let Some(message) = message {
-                    data.current.values.insert("message".into(), Value::String(message.clone()));
+                    data.instance_mut(span.instance).values.insert("message".into(), Value::String(message.clone()));
                 }
                 for (k, v) in value_set {
-                    data.current.values.insert(k.clone(), v.clone());
+                    data.instance_mut(span.instance).values.insert(k.clone(), v.clone());
                 }
                 data.dropped = false;
             }
             NetCommand::SpanFollows { span, follows } => {
-                if let Some(parent) = state.tree.find_parent(*follows) {
-                    state.tree.relocate_node(*span, parent);
+                if let Some(parent) = state.tree.find_parent(follows.id) {
+                    state.tree.relocate_node(span.id, parent);
                 }
             }
             NetCommand::SpanValues { span, message, value_set } => {
-                let data = state.tree_data.get_mut(span).unwrap();
+                let data = state.tree_data.get_mut(&span.id).unwrap();
                 if let Some(message) = message {
-                    data.current.values.insert("message".into(), Value::String(message.clone()));
+                    data.instance_mut(span.instance).values.insert("message".into(), Value::String(message.clone()));
                 }
                 for (k, v) in value_set {
-                    data.current.values.insert(k.clone(), v.clone());
+                    data.instance_mut(span.instance).values.insert(k.clone(), v.clone());
                 }
             }
             NetCommand::Event { span, metadata, time, message, value_set } => {
@@ -113,63 +107,64 @@ impl Delegate {
                 let (target, module) = metadata.get_target_module();
                 let msg = format!("<{}> [{}] ({}) {}: {}", target, level, formatted, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
                 let mut value_set = value_set.clone();
-                let data = if let Some(span) = span {
-                    let data = state.tree_data.get_mut(span).unwrap();
+                let events = if let Some(span) = span {
+                    let data = state.tree_data.get_mut(&span.id).unwrap();
                     if state.preferences.inherit {
                         // Potential problem if parent is freed before child. I don't expect tracing
                         // to call try_close on the parent before the child.
                         //TODO: Check if by any chance tracing would act weird...
-                        let iter = data.current.values.iter()
+                        let iter = data.instance(span.instance).values.iter()
                             .map(|(k, v)| (data.metadata.name.clone() + "::" + k, v.clone()));
                         for (k, v) in iter {
                             value_set.insert(0, (k, v));
                         }
                     }
-                    data
+                    &mut data.instance_mut(span.instance).events
                 } else {
                     if !state.tree_data.contains_key(&0) {
                         state.tree_data.insert(0, SpanData::default());
                     }
-                    state.tree_data.get_mut(&0).unwrap()
+                    &mut state.tree_data.get_mut(&0).unwrap().root_instance().events
                 };
                 let event = Event {
                     msg,
                     values: value_set.into_boxed_slice().into()
                 };
-                data.current.events.push_front(Arc::new(event));
+                events.push_front(Arc::new(event));
                 while state.preferences.max_events > 0
-                    && data.current.events.len() > state.preferences.max_events as usize {
-                    data.current.events.pop_back(); // Drop oldest item to ensure we do not exceed
+                    && events.len() > state.preferences.max_events as usize {
+                    events.pop_back(); // Drop oldest item to ensure we do not exceed
                     // the user defined size limit.
                 }
             }
             NetCommand::SpanEnter(span) => {
-                let data = state.tree_data.get_mut(span).unwrap();
+                let data = state.tree_data.get_mut(&span.id).unwrap();
                 data.active = true;
             }
             NetCommand::SpanExit { span, duration } => {
-                let data = state.tree_data.get_mut(span).unwrap();
-                data.active = false;
-                data.current.duration = *duration;
+                let data = state.tree_data.get_mut(&span.id).unwrap();
+                if data.instance_count() == 0 {
+                    data.active = false;
+                }
+                data.instance_mut(span.instance).duration = *duration;
             }
             NetCommand::SpanFree(span) => {
-                let mut log = std::mem::replace(
-                    &mut state.tree_data.get_mut(span).unwrap().current,
-                    SpanLogEntry::new());
+                let mut log = state.tree_data.get_mut(&span.id).unwrap().free_instance(span.instance);
                 if state.preferences.inherit {
                     // Potential problem if parent is freed before child. I don't expect tracing
                     // to call try_close on the parent before the child.
                     //TODO: Check if by any chance tracing would act weird...
-                    if let Some(parent) = state.tree.find_parent(*span) {
+                    if let Some(parent) = state.tree.find_parent(span.id) {
                         let data1 = state.tree_data.get(&parent).unwrap();
-                        let iter = data1.current.values.iter()
+                        let fuckingrust = data1.current();
+                        let iter = fuckingrust.values.iter()
                             .map(|(k, v)| (data1.metadata.name.clone() + "::" + k, v.clone()));
                         for (k, v) in iter {
                             log.values.insert(k, v);
                         }
                     }
                 }
-                let data = state.tree_data.get_mut(span).unwrap();
+                let data = state.tree_data.get_mut(&span.id).unwrap();
                 data.dropped = true;
                 data.history.push_front(log);
                 while state.preferences.max_history > 0

@@ -89,7 +89,7 @@ pub fn view_active() -> impl Widget<State> {
             Box::new(flex)
         });
     let duration = ViewSwitcher::new(
-        |data: &State, _| data.get_field(|v| v.current.duration),
+        |data: &State, _| data.get_field(|v| v.current().duration),
         |duration, _, _| {
             let font = small_bold_font();
             Box::new(Flex::row()
@@ -97,7 +97,7 @@ pub fn view_active() -> impl Widget<State> {
                          .with_child(Label::new(duration.to_string())))
         });
     let values = ViewSwitcher::new(
-        |data: &State, _| data.get_field(|v| v.current.values.clone()),
+        |data: &State, _| data.get_field(|v| v.current().values.clone()),
         |values, _, _| Box::new(super::common::build_values_view(values.iter())));
 
     let font = small_bold_font();
@@ -125,7 +125,7 @@ pub fn view_active() -> impl Widget<State> {
         .with_child(
             Button::new("View events")
                 .on_click(|ctx, data: &mut State, _| {
-                    let events = data.get_field(|v| v.current.events.clone());
+                    let events = data.get_field(|v| v.current().events.clone());
                     if let Some(window) = EventsWindow::new(data, events) {
                         ctx.submit_command(SPAWN_WINDOW.with(Box::new(window)));
                     }

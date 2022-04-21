@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::borrow::Cow;
 use std::net::IpAddr;
 use std::sync::Arc;
 use druid::{Data, Lens};
@@ -37,7 +38,7 @@ use crate::window_map::WindowMap;
 #[derive(Clone, Data, Debug, Lens)]
 pub struct Span {
     pub metadata: Arc<Metadata>,
-    pub id: u64,
+    pub id: u32,
     pub expanded: bool,
     children: Vector<Span>
 }
@@ -52,7 +53,7 @@ impl Span {
         }
     }
 
-    pub fn with_metadata(id: u64, metadata: Arc<Metadata>) -> Span {
+    pub fn with_metadata(id: u32, metadata: Arc<Metadata>) -> Span {
         Span {
             metadata,
             id,
@@ -62,7 +63,7 @@ impl Span {
     }
 
     /// Attempts to find the parent of the specified node.
-    pub fn find_parent(&self, id: u64) -> Option<u64> {
+    pub fn find_parent(&self, id: u32) -> Option<u32> {
         for v in &self.children {
             if v.id == id {
                 return Some(self.id);
@@ -78,7 +79,7 @@ impl Span {
     ///
     /// If the node wasn't found, None is returned.
     /// If the node was found and removed, the removed node is returned.
-    pub fn remove_node(&mut self, id: u64) -> Option<Span> {
+    pub fn remove_node(&mut self, id: u32) -> Option<Span> {
         let index = self.children.iter().enumerate()
             .find_map(|(i, v)| if v.id == id { Some(i) } else { None });
         if let Some(index) = index {
@@ -102,7 +103,7 @@ impl Span {
     ///
     /// If the parent could not be found the node is returned.
     /// If the parent was found and the node added None is returned.
-    pub fn add_node_with_parent(&mut self, node: Span, parent: u64) -> Option<Span> {
+    pub fn add_node_with_parent(&mut self, node: Span, parent: u32) -> Option<Span> {
         if self.id == parent {
             self.add_node(node);
             return None;
@@ -120,7 +121,7 @@ impl Span {
     /// Attempts to relocated the specified node under the new specified parent.
     ///
     /// Returns true if the operation has succeeded.
-    pub fn relocate_node(&mut self, id: u64, new_parent: u64) -> bool {
+    pub fn relocate_node(&mut self, id: u32, new_parent: u32) -> bool {
         if let Some(node) = self.remove_node(id) {
             if self.add_node_with_parent(node, new_parent).is_none() {
                 return true;
@@ -175,8 +176,56 @@ pub struct SpanData {
     pub active: bool, //Is this span currently entered
     pub dropped: bool,
     pub metadata: Arc<Metadata>,
-    pub current: SpanLogEntry,
+    instances: HashMap<u32, SpanLogEntry>,
+    last_instance: u32,
     pub history: Vector<SpanLogEntry> //The history of previously dropped instances of the span
+}
+
+impl SpanData {
+    pub fn new(metadata: Arc<Metadata>) -> SpanData {
+        SpanData {
+            active: false,
+            dropped: false,
+            metadata,
+            instances: HashMap::new(),
+            last_instance: 0,
+            history: Vector::new()
+        }
+    }
+
+    pub fn instance_count(&self) -> usize {
+        self.instances.len()
+    }
+
+    pub fn root_instance(&mut self) -> &mut SpanLogEntry {
+        if self.instances.contains_key(&0) {
+            self.instance_mut(0)
+        } else {
+            self.new_instance(0)
+        }
+    }
+
+    pub fn new_instance(&mut self, instance: u32) -> &mut SpanLogEntry {
+        self.last_instance = instance;
+        self.instances.insert(instance, SpanLogEntry::new());
+        return unsafe { self.instances.get_mut(&instance).unwrap_unchecked() }
+    }
+
+    pub fn current(&self) -> Cow<SpanLogEntry> {
+        self.instances.get(&self.last_instance).map(Cow::Borrowed).unwrap_or_default()
+    }
+
+    pub fn instance(&self, instance: u32) -> &SpanLogEntry {
+        self.instances.get(&instance).unwrap()
+    }
+
+    pub fn instance_mut(&mut self, instance: u32) -> &mut SpanLogEntry {
+        self.instances.get_mut(&instance).unwrap()
+    }
+
+    pub fn free_instance(&mut self, instance: u32) -> SpanLogEntry {
+        self.instances.remove(&instance).unwrap()
+    }
 }
 
 //The state for an events window.
@@ -222,11 +271,11 @@ pub struct Peer {
 #[derive(Clone, Data, Lens, Default)]
 pub struct State {
     pub tree: Span,
-    pub tree_data: HashMap<u64, SpanData>,
+    pub tree_data: HashMap<u32, SpanData>,
     pub connected: bool,
     pub address: String,
     pub status: String,
-    pub selected: u64,
+    pub selected: u32,
     pub event_windows: WindowMap<StateEvents>,
     pub history_windows: WindowMap<StateHistory>,
     pub preferences: Preferences,

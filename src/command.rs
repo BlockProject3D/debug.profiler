@@ -50,5 +50,5 @@ pub const NETWORK_PEER_ERR: Selector<String> = Selector::new("network.peer.error
 pub const DISCOVER_START: Selector = Selector::new("network.peer.start");
 
 // GUI.
-pub const SELECT_NODE: Selector<u64> = Selector::new("node.select");
+pub const SELECT_NODE: Selector<u32> = Selector::new("node.select");
 pub const SPAWN_WINDOW: Selector<Box<dyn Window>> = Selector::new("window.spawn");
