@@ -61,7 +61,6 @@ impl Delegate {
             NetCommand::SpanAlloc { id, metadata } => {
                 let metadata = Arc::new(metadata.clone());
                 state.tree_data.insert(id.id, SpanData::new(metadata.clone()));
-                state.tree_data.get_mut(&id.id).unwrap().new_instance(id.instance);
                 state.tree.add_node(Span::with_metadata(id.id, metadata));
             }
             NetCommand::SpanInit { span, parent, message, value_set } => {
@@ -69,11 +68,12 @@ impl Delegate {
                     state.tree.relocate_node(span.id, parent.id);
                 }
                 let data = state.tree_data.get_mut(&span.id).unwrap();
+                let instance = data.new_instance(span.instance);
                 if let Some(message) = message {
-                    data.instance_mut(span.instance).values.insert("message".into(), Value::String(message.clone()));
+                    instance.values.insert("message".into(), Value::String(message.clone()));
                 }
                 for (k, v) in value_set {
-                    data.instance_mut(span.instance).values.insert(k.clone(), v.clone());
+                    instance.values.insert(k.clone(), v.clone());
                 }
                 data.dropped = false;
             }
