@@ -301,4 +301,14 @@ impl State {
     pub fn get_field<T: Default, F: FnOnce(&SpanData) -> T>(&self, f: F) -> T {
         self.tree_data.get(&self.selected).map(f).unwrap_or_default()
     }
+
+    pub fn reset(&mut self) {
+        self.selected = 0;
+        self.address = "".into();
+        self.tree = Span::default();
+        self.tree_data = druid::im::HashMap::new();
+        self.connected = false;
+        self.status = "".into();
+        self.selected_peer = None;
+    }
 }

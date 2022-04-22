@@ -196,13 +196,7 @@ impl AppDelegate<State> for Delegate {
             self.channel.send(crate::thread::Command::Disconnect).unwrap();
             //Turn off network handling.
             self.networked = false;
-            state.selected = 0;
-            state.address = "".into();
-            state.tree = Span::default();
-            state.tree_data = druid::im::HashMap::new();
-            state.connected = false;
-            state.status = "".into();
-            state.selected_peer = None;
+            state.reset();
             return Handled::Yes;
         }
         if let Some(id) = cmd.get(SELECT_NODE) {
