@@ -202,6 +202,7 @@ impl AppDelegate<State> for Delegate {
             state.tree_data = druid::im::HashMap::new();
             state.connected = false;
             state.status = "".into();
+            state.selected_peer = None;
             return Handled::Yes;
         }
         if let Some(id) = cmd.get(SELECT_NODE) {
