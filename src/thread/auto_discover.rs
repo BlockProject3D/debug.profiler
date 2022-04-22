@@ -117,7 +117,10 @@ impl Connection for Internal {
     type Message = Result<Peer, String>;
     type Worker = Worker;
     type Parameters = ();
-    const MAX_MESSAGES: usize = MAX_BUFFER;
+
+    fn max_messages(&self) -> usize {
+        MAX_BUFFER
+    }
 
     fn new(_: &ExtEventSink, _: Self::Parameters) -> Option<(Self, Self::Worker)> {
         let worker = Worker::new().ok()?;

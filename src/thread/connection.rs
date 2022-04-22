@@ -98,13 +98,18 @@ struct Internal {
     buffer: super::command::Buffer
 }
 
+type Params = (String, Option<usize>);
+
 impl super::base::Connection for Internal {
     type Message = Result<NetCommand, String>;
     type Worker = Worker;
-    type Parameters = String;
-    const MAX_MESSAGES: usize = super::command::MAX_BUFFER;
+    type Parameters = Params;
 
-    fn new(sink: &ExtEventSink, ip: String) -> Option<(Self, Self::Worker)> {
+    fn max_messages(&self) -> usize {
+        self.buffer.max_buffer()
+    }
+
+    fn new(sink: &ExtEventSink, (ip, max_sub_buffer): Params) -> Option<(Self, Self::Worker)> {
         let socket = match Worker::connect(ip) {
             Ok(v) => v,
             Err(e) => {
@@ -114,7 +119,7 @@ impl super::base::Connection for Internal {
         };
         sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
         let this = Internal {
-            buffer: super::command::Buffer::new()
+            buffer: super::command::Buffer::new(max_sub_buffer)
         };
         let worker = Worker::new(socket);
         Some((this, worker))
@@ -135,4 +140,4 @@ impl super::base::Connection for Internal {
     }
 }
 
-super::base::hack_rust_garbage_private_rule!(Connection<String, Internal>);
+super::base::hack_rust_garbage_private_rule!(Connection<Params, Internal>);

@@ -39,7 +39,7 @@ fn preferences_window() -> impl Widget<State> {
     Flex::column()
         .with_child(
             Flex::row()
-                .with_child(Label::new("Maximum history (0 = unlimited): "))
+                .with_child(Label::new("Maximum history length (0 = unlimited): "))
                 .with_child(
                     ValueTextBox::new(TextBox::new(), ParseFormatter::new())
                         .lens(State::preferences.then(Preferences::max_history))
@@ -52,6 +52,15 @@ fn preferences_window() -> impl Widget<State> {
                 .with_child(
                     ValueTextBox::new(TextBox::new(), ParseFormatter::new())
                         .lens(State::preferences.then(Preferences::max_events))
+                )
+        )
+        .with_spacer(10.0)
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Maximum size for the fast-forward buffer (0 = unlimited): "))
+                .with_child(
+                    ValueTextBox::new(TextBox::new(), ParseFormatter::new())
+                        .lens(State::preferences.then(Preferences::max_sub_buffer))
                 )
         )
         .with_spacer(10.0)

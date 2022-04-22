@@ -32,6 +32,7 @@ use std::sync::Arc;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
+use crate::thread::DEFAULT_MAX_SUB_BUFFER;
 use crate::thread::network_types::{Metadata, Value};
 use crate::window_map::WindowMap;
 
@@ -254,12 +255,25 @@ impl Default for Theme {
     }
 }
 
-#[derive(Clone, Data, Lens, Default)]
+#[derive(Clone, Data, Lens)]
 pub struct Preferences {
     pub max_history: u32,
     pub max_events: u32,
     pub theme: Theme,
-    pub inherit: bool
+    pub inherit: bool,
+    pub max_sub_buffer: usize
+}
+
+impl Default for Preferences {
+    fn default() -> Self {
+        Preferences {
+            max_history: 10,
+            max_events: 0,
+            theme: Theme::default(),
+            inherit: true,
+            max_sub_buffer: DEFAULT_MAX_SUB_BUFFER
+        }
+    }
 }
 
 #[derive(Clone, Data)]

@@ -60,11 +60,11 @@ impl BackgroundThread {
             };
             if let Some(cmd) = cmd {
                 match cmd {
-                    Command::Connect { ip, sink } => {
+                    Command::Connect { ip, sink, max_sub_buffer } => {
                         if self.connection.is_some() {
                             continue;
                         }
-                        self.connection = Connection::new(sink, ip);
+                        self.connection = Connection::new(sink, (ip, max_sub_buffer));
                         if self.connection.is_some() {
                             //If we have a new connection, terminate auto-discovery service.
                             self.auto_discovery.take().map(|v| v.end());

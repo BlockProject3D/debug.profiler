@@ -256,7 +256,11 @@ impl AppDelegate<State> for Delegate {
             } else if cmd.is(CONNECT) {
                 state.status = "Connecting...".into();
                 let ip = std::mem::replace(&mut state.address, String::new());
-                self.channel.send(crate::thread::Command::Connect { ip, sink: ctx.get_external_handle() }).unwrap();
+                self.channel.send(crate::thread::Command::Connect {
+                    ip,
+                    sink: ctx.get_external_handle(),
+                    max_sub_buffer: Some(state.preferences.max_sub_buffer)
+                }).unwrap();
                 return Handled::Yes;
             } else if cmd.is(CONNECTION_SUCCESS) {
                 state.status = "Ready.".into();

@@ -62,8 +62,8 @@ pub trait Connection where Self: Sized {
     type Message: Send;
     type Worker: Run<Self>;
     type Parameters;
-    const MAX_MESSAGES: usize;
 
+    fn max_messages(&self) -> usize;
     fn new(sink: &ExtEventSink, params: Self::Parameters) -> Option<(Self, Self::Worker)>;
     fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool;
 }
@@ -80,7 +80,7 @@ impl<T: 'static + Connection> BaseConnection<T> {
     pub fn new(sink: ExtEventSink, params: T::Parameters) -> Option<BaseConnection<T>> {
         let (inner, mut worker) = T::new(&sink, params)?;
         let exit_flag = Arc::new(AtomicBool::new(false));
-        let (sender, receiver) = bounded(T::MAX_MESSAGES);
+        let (sender, receiver) = bounded(inner.max_messages());
         let base = BaseWorker::new(sender, exit_flag.clone());
         let thread_handle = std::thread::spawn(move || {
             worker.run(&base)
