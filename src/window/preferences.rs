@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{LensExt, Widget, WidgetExt, WindowDesc};
+use druid::{Widget, WidgetExt, WindowDesc};
 use druid::text::ParseFormatter;
 use druid::widget::{Checkbox, Flex, Label, TextBox, ValueTextBox};
 use druid_widget_nursery::{ListSelect, WidgetExt as _};
@@ -80,6 +80,7 @@ fn preferences_window() -> impl Widget<Preferences> {
                 .lens(Preferences::inherit)
         )
         .center()
+        .on_change(|_, _, new, _| new.save())
 }
 
 pub struct PreferencesWindow;

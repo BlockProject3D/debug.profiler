@@ -27,14 +27,20 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::borrow::Cow;
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::net::IpAddr;
 use std::sync::Arc;
+use bp3d_fs::dirs::App;
+use bpx::sd::serde::EnumSize;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
+use crate::FILESYS_APP_NAME;
 use crate::thread::DEFAULT_MAX_SUB_BUFFER;
 use crate::thread::network_types::{Metadata, Value};
 use crate::window_map::WindowMap;
+use serde::{Serialize, Deserialize};
 
 #[derive(Clone, Data, Debug, Lens)]
 pub struct Span {
@@ -243,7 +249,7 @@ pub struct StateHistory {
     pub history: Vector<SpanLogEntry>
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Data)]
+#[derive(Copy, Clone, Eq, PartialEq, Data, Serialize, Deserialize)]
 pub enum Theme {
     Light,
     Dark
@@ -255,7 +261,7 @@ impl Default for Theme {
     }
 }
 
-#[derive(Clone, Data, Lens)]
+#[derive(Clone, Data, Lens, Serialize, Deserialize)]
 pub struct Preferences {
     pub max_history: u32,
     pub max_events: u32,
@@ -264,15 +270,55 @@ pub struct Preferences {
     pub max_sub_buffer: usize
 }
 
+impl Preferences {
+    pub fn save(&self) {
+        let bpx_header = bpx::core::builder::MainHeaderBuilder::new().ty(b'U').build();
+        let container = App::new(FILESYS_APP_NAME).get_config()
+            .map(|v| v.join("preferences.bpx"))
+            .map_err(|_| ())
+            .and_then(|v| File::create(v).map_err(|_| ()))
+            .map(BufWriter::new)
+            .map(|v| bpx::core::Container::create(v, bpx_header));
+        match container {
+            Ok(mut container) => {
+                let hdl = container.sections_mut()
+                    .create(bpx::core::builder::SectionHeaderBuilder::new().ty(0x1));
+                match self.serialize(bpx::sd::serde::Serializer::new(EnumSize::U8, false)) {
+                    Ok(v) => {
+                        let mut section = container.sections().open(hdl).unwrap();
+                        let _ = v.write(&mut *section);
+                    },
+                    _ => ()
+                }
+                let _ = container.save();
+            }
+            _ => ()
+        }
+    }
+
+    fn load() -> Option<Preferences> {
+        let container = App::new(FILESYS_APP_NAME).get_config()
+            .map(|v| v.join("preferences.bpx"))
+            .map_err(|_| ())
+            .and_then(|v| File::open(v).map_err(|_| ()))
+            .map(BufReader::new)
+            .and_then(|v| bpx::core::Container::open(v).map_err(|_| ()))
+            .ok()?;
+        let hdl = container.sections().find_by_type(0x1)?;
+        let mut section = container.sections().load(hdl).ok()?;
+        Preferences::deserialize(bpx::sd::serde::Deserializer::new(EnumSize::U8, bpx::sd::Value::read(&mut *section).ok()?)).ok()
+    }
+}
+
 impl Default for Preferences {
     fn default() -> Self {
-        Preferences {
+        Self::load().unwrap_or(Preferences {
             max_history: 16,
             max_events: 0,
             theme: Theme::default(),
             inherit: true,
             max_sub_buffer: DEFAULT_MAX_SUB_BUFFER
-        }
+        })
     }
 }
 
