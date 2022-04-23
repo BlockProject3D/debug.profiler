@@ -26,85 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::{Display, Formatter};
-use druid::Data;
 use serde::{Serialize, Deserialize};
+use super::Metadata;
+use super::Value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SpanId {
     pub id: u32,
     pub instance: u32
-}
-
-#[derive(Data, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Value {
-    Float(f64),
-    Signed(i64),
-    Unsigned(u64),
-    String(String),
-    Bool(bool)
-}
-
-impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Float(v) => write!(f, "{}", v),
-            Value::Signed(v) => write!(f, "{}", v),
-            Value::Unsigned(v) => write!(f, "{}", v),
-            Value::String(v) => write!(f, "\"{}\"", v),
-            Value::Bool(v) => {
-                if *v {
-                    f.write_str("On")
-                } else {
-                    f.write_str("Off")
-                }
-            }
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
-pub enum Level {
-    Trace,
-    Debug,
-    Info,
-    Warning,
-    Error
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct Metadata {
-    pub name: String, //The name of the span/event
-    pub target: String, //The target of the span/event (usually this contains module path)
-    pub level: Level, //The log level of the span/event
-    pub module_path: Option<String>, //The module path (including crate name)
-    pub file: Option<String>, //The file path
-    pub line: Option<u32> //The line number in the file
-}
-
-impl Metadata {
-    pub fn get_target_module(&self) -> (&str, Option<&str>) {
-        let base_string = self.module_path.as_deref().unwrap_or_else(|| &*self.target);
-        let target = base_string
-            .find("::")
-            .map(|v| &base_string[..v])
-            .unwrap_or(&base_string);
-        let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
-        (target, module)
-    }
-}
-
-impl Default for Metadata {
-    fn default() -> Self {
-        Metadata {
-            name: "root".into(),
-            target: "".into(),
-            level: Level::Info,
-            file: None,
-            module_path: None,
-            line: None
-        }
-    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
