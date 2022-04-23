@@ -27,11 +27,12 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::sync::Arc;
-use druid::{Color, LensExt, Widget, WidgetExt, WindowDesc};
+use druid::{LensExt, Widget, WidgetExt, WindowDesc};
 use druid::im::Vector;
 use druid::widget::{Flex, Padding, ViewSwitcher};
 use druid_widget_nursery::ListSelect;
 use crate::state::{Event, State, StateEvents};
+use crate::theme::BOX_BORDERS;
 use crate::view::common;
 use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
@@ -54,8 +55,8 @@ fn events_view() -> impl Widget<StateEvents> {
         .with_child(values)
         .scroll();
     Flex::column()
-        .with_flex_child(list.expand().border(Color::BLACK, 0.5), 50.0)
-        .with_flex_child(values.center().expand().border(Color::BLACK, 0.5), 50.0)
+        .with_flex_child(list.expand().border(BOX_BORDERS, 0.5), 50.0)
+        .with_flex_child(values.center().expand().border(BOX_BORDERS, 0.5), 50.0)
 }
 
 fn events_window(window: usize) -> impl Widget<State> {

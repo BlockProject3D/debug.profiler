@@ -26,12 +26,14 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Widget, WidgetExt};
+use druid::{Widget, WidgetExt};
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use crate::command::SPAWN_WINDOW;
 use crate::thread::network_types::Level;
 use crate::state::State;
-use crate::view::common::{COLOR_DEBUG, COLOR_ERR, COLOR_INFO, COLOR_TRACE, COLOR_WARN, small_bold_font};
+use crate::theme::BOX_BORDERS;
+use crate::constants::{COLOR_DEBUG, COLOR_ERR, COLOR_INFO, COLOR_TRACE, COLOR_WARN};
+use crate::view::common::small_bold_font;
 use crate::window::EventsWindow;
 use crate::window::HistoryWindow;
 
@@ -142,9 +144,9 @@ pub fn view_active() -> impl Widget<State> {
                 })
         );
     Flex::column()
-        .with_child(basic.border(Color::BLACK, 0.5))
+        .with_child(basic.border(BOX_BORDERS, 0.5))
         .with_spacer(10.0)
-        .with_child(values.border(Color::BLACK, 0.5))
+        .with_child(values.border(BOX_BORDERS, 0.5))
         .with_spacer(10.0)
-        .with_child(Padding::new(5.0, actions).border(Color::BLACK, 0.5))
+        .with_child(Padding::new(5.0, actions).border(BOX_BORDERS, 0.5))
 }

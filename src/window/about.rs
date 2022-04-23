@@ -74,6 +74,7 @@ fn view() -> impl Widget<State> {
         .with_spacer(7.0)
         .with_flex_child(
             Label::new(LICENSE)
+                .with_text_color(Color::BLACK)
                 .padding(10.0)
                 .background(BackgroundBrush::Color(Color::WHITE))
                 .scroll(),

@@ -30,12 +30,6 @@ use druid::{Color, Data, FontDescriptor, FontFamily, FontWeight, Widget};
 use druid::widget::{Flex, Label};
 use crate::thread::network_types::Value;
 
-pub const COLOR_TRACE: Color = Color::rgb8(0, 255, 255);
-pub const COLOR_DEBUG: Color = Color::rgb8(0, 0, 255);
-pub const COLOR_INFO: Color = Color::rgb8(0, 255, 0);
-pub const COLOR_WARN: Color = Color::rgb8(255, 255, 0);
-pub const COLOR_ERR: Color = Color::rgb8(255, 0, 0);
-
 pub fn bold_font() -> FontDescriptor {
     FontDescriptor::new(FontFamily::SYSTEM_UI)
         .with_weight(FontWeight::BOLD)

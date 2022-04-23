@@ -26,12 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Env, EventCtx, UnitPoint, Widget, WidgetExt, WindowDesc};
+use druid::{Env, EventCtx, UnitPoint, Widget, WidgetExt, WindowDesc};
 use druid::widget::{Align, Button, Flex, Label, Padding, TextBox, ViewSwitcher};
 use druid_widget_nursery::{ListSelect, WidgetExt as _};
 use crate::command::CONNECT;
 use crate::constants::{APP_NAME, DEFAULT_PORT};
 use crate::state::State;
+use crate::theme::BOX_BORDERS;
 use crate::view::main::view_main;
 use crate::view::menu::build_main_menu;
 use crate::view::tree::view_tree;
@@ -57,7 +58,7 @@ fn view_auto_discover() -> impl Widget<State> {
                         })
                         .scroll()
                         .fix_size(200.0, 200.0)
-                        .border(Color::BLACK, 0.1)
+                        .border(BOX_BORDERS, 0.5)
                 );
             Box::new(flex)
         }
@@ -68,7 +69,7 @@ fn main_window() -> impl Widget<State> {
     ViewSwitcher::new(|data: &State, _| data.connected, |connected, _, _| {
         let flex = match connected {
             true => Flex::row()
-                    .with_child(view_tree().lens(State::tree).border(Color::BLACK, 0.5))
+                    .with_child(view_tree().lens(State::tree).border(BOX_BORDERS, 0.5))
                     .with_spacer(5.0)
                     .with_flex_child(view_main(), 90.0),
             false => Flex::column()

@@ -26,9 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Widget, WidgetExt};
+use druid::{Widget, WidgetExt};
 use druid::widget::{Flex, Label, Padding};
 use crate::state::State;
+use crate::theme::BOX_BORDERS;
 use crate::view::active::view_active;
 
 pub fn view_main() -> impl Widget<State> {
@@ -38,5 +39,5 @@ pub fn view_main() -> impl Widget<State> {
         .scroll()
         .center()
         .expand()
-        .border(Color::BLACK, 0.5)
+        .border(BOX_BORDERS, 0.5)
 }

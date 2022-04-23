@@ -27,6 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::time::Duration;
+use druid::Color;
 
 //
 // --> Basic constants <--
@@ -66,3 +67,22 @@ pub const AUTODISCOVERY_PROTOCOL_VERSION: u8 = 0;
 
 /// The default port for both UDP (auto discovery) and TCP.
 pub const DEFAULT_PORT: u16 = 4026;
+
+//
+// --> GUI constants <--
+//
+
+/// The color for Level::TRACE.
+pub const COLOR_TRACE: Color = Color::rgb8(0, 255, 255);
+
+/// The color for Level::DEBUG.
+pub const COLOR_DEBUG: Color = Color::rgb8(0, 0, 255);
+
+/// The color for Level::INFO.
+pub const COLOR_INFO: Color = Color::rgb8(0, 255, 0);
+
+/// The color for Level::WARN.
+pub const COLOR_WARN: Color = Color::rgb8(255, 255, 0);
+
+/// The color for Level::ERROR.
+pub const COLOR_ERR: Color = Color::rgb8(255, 0, 0);

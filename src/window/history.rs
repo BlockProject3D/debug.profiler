@@ -26,12 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, LensExt, Widget, WidgetExt, WindowDesc};
+use druid::{LensExt, Widget, WidgetExt, WindowDesc};
 use druid::im::Vector;
 use druid::widget::{Button, Flex, Label, Padding, ViewSwitcher};
 use druid_widget_nursery::ListSelect;
 use crate::command::SPAWN_WINDOW;
 use crate::state::{SpanLogEntry, State, StateHistory};
+use crate::theme::BOX_BORDERS;
 use crate::view::common;
 use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
@@ -47,9 +48,9 @@ fn view_active_start() -> impl Widget<StateHistory> {
     let basic = common::build_box("Duration").with_child(duration);
     let values = common::build_box("Values").with_child(values);
     Flex::column()
-        .with_child(basic.border(Color::BLACK, 0.5))
+        .with_child(basic.border(BOX_BORDERS, 0.5))
         .with_spacer(10.0)
-        .with_child(values.border(Color::BLACK, 0.5))
+        .with_child(values.border(BOX_BORDERS, 0.5))
 }
 
 fn view_actions(window: usize) -> impl Widget<State> {
@@ -94,7 +95,7 @@ fn history_view(window: usize) -> impl Widget<State> {
                 .scroll()
                 .center()
                 .expand()
-                .border(Color::BLACK, 0.5),
+                .border(BOX_BORDERS, 0.5),
             90.0
         )
 }
