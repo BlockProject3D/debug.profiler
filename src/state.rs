@@ -267,7 +267,7 @@ pub struct Preferences {
 impl Default for Preferences {
     fn default() -> Self {
         Preferences {
-            max_history: 10,
+            max_history: 16,
             max_events: 0,
             theme: Theme::default(),
             inherit: true,
