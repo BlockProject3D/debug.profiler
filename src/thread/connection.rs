@@ -31,8 +31,8 @@ use bincode::ErrorKind;
 use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
+use crate::constants::NET_READ_DURATION;
 use crate::thread::base::{BaseWorker, Run};
-use crate::thread::NET_READ_DURATION;
 use super::network_types::Command as NetCommand;
 
 struct Worker {

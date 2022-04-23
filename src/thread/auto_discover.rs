@@ -31,11 +31,10 @@ use std::net::{Ipv4Addr, UdpSocket};
 use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
 use druid::im::HashSet;
-use crate::{DEFAULT_PORT, PROTOCOL_VERSION};
 use crate::command::{NETWORK_PEER, NETWORK_PEER_ERR};
+use crate::constants::{AUTODISCOVERY_PROTOCOL_VERSION, DEFAULT_PORT, NET_READ_DURATION};
 use crate::state::Peer;
 use crate::thread::base::{BaseWorker, Connection, Run};
-use crate::thread::NET_READ_DURATION;
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
 const NAME_MAX_CHARS: usize = 126;
@@ -67,7 +66,7 @@ impl Worker {
         match self.socket.recv_from(&mut buffer) {
             Ok((len, peer_addr)) => {
                 if len != NAME_MAX_CHARS + 2 || buffer[0] != PROTOCOL_SIGNATURE
-                    || buffer[1] != PROTOCOL_VERSION {
+                    || buffer[1] != AUTODISCOVERY_PROTOCOL_VERSION {
                     // The message is not valid for this application.
                     return Ok(None);
                 }

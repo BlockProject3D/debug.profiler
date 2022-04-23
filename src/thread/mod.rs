@@ -33,15 +33,5 @@ mod connection;
 mod auto_discover;
 mod base;
 
-use std::time::Duration;
-const NET_READ_DURATION: Duration = Duration::from_millis(500);
-
-#[cfg(debug_assertions)]
-pub const DEFAULT_MAX_SUB_BUFFER: usize = 512;
-// Only allow fast forward up to 512 commands because druid is atrociously slow in debug mode.
-
-#[cfg(not(debug_assertions))]
-pub const DEFAULT_MAX_SUB_BUFFER: usize = 8192;
-
 pub use self::core::BackgroundThread;
 pub use self::command::Command;

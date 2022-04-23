@@ -29,7 +29,7 @@
 use std::collections::VecDeque;
 use crossbeam_channel::Receiver;
 use druid::ExtEventSink;
-use crate::thread::DEFAULT_MAX_SUB_BUFFER;
+use crate::constants::{DEFAULT_MAX_SUB_BUFFER, MAX_BUFFER_MULTIPLIER};
 use super::network_types::Command as NetCommand;
 
 pub enum Command {
@@ -53,7 +53,7 @@ pub struct Buffer {
 impl Buffer {
     pub fn new(max_sub_buffer: Option<usize>) -> Buffer {
         let max_sub_buffer = max_sub_buffer.unwrap_or(DEFAULT_MAX_SUB_BUFFER);
-        let max_buffer = max_sub_buffer * 2;
+        let max_buffer = max_sub_buffer * MAX_BUFFER_MULTIPLIER;
         Buffer {
             queue: VecDeque::with_capacity(max_buffer),
             terminate_received: false,

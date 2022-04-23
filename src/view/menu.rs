@@ -28,6 +28,7 @@
 
 use druid::{commands, Data, Env, LocalizedString, Menu, MenuItem, SysMods, WindowId};
 use crate::command::{DISCONNECT, DISCOVER_START, NEW, SPAWN_WINDOW};
+use crate::constants::APP_NAME;
 use crate::state::State;
 use crate::window::{AboutWindow, PreferencesWindow};
 
@@ -36,7 +37,7 @@ use crate::window::{AboutWindow, PreferencesWindow};
 // This is done this way as BP3D FORBIDS branding by libraries other than BP3D itself!
 
 fn about<T: Data>() -> MenuItem<T> {
-    MenuItem::new(String::from("About ") + crate::APP_NAME)
+    MenuItem::new(String::from("About ") + APP_NAME)
         .command(SPAWN_WINDOW.with(Box::new(AboutWindow)))
 }
 
@@ -47,7 +48,7 @@ fn preferences<T: Data>() -> MenuItem<T> {
 }
 
 fn hide<T: Data>() -> MenuItem<T> {
-    MenuItem::new(String::from("Hide ") + crate::APP_NAME)
+    MenuItem::new(String::from("Hide ") + APP_NAME)
         .command(commands::HIDE_APPLICATION)
         .hotkey(SysMods::Cmd, "h")
 }
@@ -59,13 +60,13 @@ fn hide_others<T: Data>() -> MenuItem<T> {
 }
 
 fn quit<T: Data>() -> MenuItem<T> {
-    MenuItem::new(String::from("Quit ") + crate::APP_NAME)
+    MenuItem::new(String::from("Quit ") + APP_NAME)
         .command(commands::QUIT_APP)
         .hotkey(SysMods::Cmd, "q")
 }
 
 fn build_app_menu() -> Menu<State> {
-    Menu::new(crate::APP_NAME)
+    Menu::new(APP_NAME)
         .entry(about())
         .separator()
         .entry(preferences())

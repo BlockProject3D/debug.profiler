@@ -28,6 +28,7 @@
 
 use druid::{Color, Widget, WidgetExt, WindowDesc};
 use druid::widget::{BackgroundBrush, Flex, Label};
+use crate::constants::APP_NAME;
 use crate::state::State;
 use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
@@ -65,7 +66,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."#;
 
 fn view() -> impl Widget<State> {
     Flex::column()
-        .with_flex_child(Label::new(crate::APP_NAME), 1.0)
+        .with_flex_child(Label::new(APP_NAME), 1.0)
         .with_spacer(10.0)
         .with_flex_child(Label::new(ABOUT_LINE1), 1.0)
         .with_spacer(20.0)

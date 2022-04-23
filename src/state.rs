@@ -36,11 +36,10 @@ use bpx::sd::serde::EnumSize;
 use druid::{Data, Lens};
 use druid::im::{HashMap, Vector};
 use druid_widget_nursery::TreeNode;
-use crate::FILESYS_APP_NAME;
-use crate::thread::DEFAULT_MAX_SUB_BUFFER;
 use crate::thread::network_types::{Metadata, Value};
 use crate::window_map::WindowMap;
 use serde::{Serialize, Deserialize};
+use crate::constants::{DEFAULT_MAX_SUB_BUFFER, FILESYS_APP_NAME};
 
 #[derive(Clone, Data, Debug, Lens)]
 pub struct Span {

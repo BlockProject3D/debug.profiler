@@ -29,8 +29,8 @@
 use druid::{Color, Env, EventCtx, UnitPoint, Widget, WidgetExt, WindowDesc};
 use druid::widget::{Align, Button, Flex, Label, Padding, TextBox, ViewSwitcher};
 use druid_widget_nursery::{ListSelect, WidgetExt as _};
-use crate::{APP_NAME, DEFAULT_PORT};
 use crate::command::CONNECT;
+use crate::constants::{APP_NAME, DEFAULT_PORT};
 use crate::state::State;
 use crate::view::main::view_main;
 use crate::view::menu::build_main_menu;

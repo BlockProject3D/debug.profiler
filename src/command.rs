@@ -31,7 +31,10 @@ use crate::state::Peer;
 use crate::thread::network_types::Command as NetCommand;
 use crate::window::Window;
 
-// Profiler connection control messages.
+//
+// --> Profiler connection control messages <--
+//
+
 pub const CONNECTION_ERROR: Selector<String> = Selector::new("network.connect.error");
 // The bool here is useless, it's only here to comply with druid design stupidities:
 // druid REQUIRES a payload to be given even if there are NO payloads when using ExtEventSink!
@@ -40,15 +43,24 @@ pub const CONNECT: Selector = Selector::new("network.connect");
 pub const DISCONNECT: Selector = Selector::new("network.disconnect");
 pub const NEW: Selector = Selector::new("network.new");
 
-// Profiler connection messages.
+//
+// --> Profiler connection messages <--
+//
+
 pub const NETWORK_ERROR: Selector<String> = Selector::new("network.error");
 pub const NETWORK_COMMAND: Selector<Box<[NetCommand]>> = Selector::new("network.command");
 
-// Auto-discovery messages.
+//
+// --> Auto-discovery messages <--
+//
+
 pub const NETWORK_PEER: Selector<Peer> = Selector::new("network.peer");
 pub const NETWORK_PEER_ERR: Selector<String> = Selector::new("network.peer.error");
 pub const DISCOVER_START: Selector = Selector::new("network.peer.start");
 
-// GUI.
+//
+// --> GUI control messages <--
+//
+
 pub const SELECT_NODE: Selector<u32> = Selector::new("node.select");
 pub const SPAWN_WINDOW: Selector<Box<dyn Window>> = Selector::new("window.spawn");

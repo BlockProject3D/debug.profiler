@@ -26,33 +26,43 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError};
-use view::theme;
-use crate::thread::BackgroundThread;
-use crate::window::Window;
+use std::time::Duration;
 
-mod state;
-mod delegate;
-mod command;
-mod view;
-mod window_map;
-mod window;
-mod thread;
-mod constants;
+//
+// --> Basic constants <--
+//
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let mut thread = BackgroundThread::new(receiver);
-        thread.run();
-    });
-    let res = AppLauncher::with_window(window::MainWindow.build())
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
-}
+/// The name of the application in the file system.
+pub const FILESYS_APP_NAME: &str = "bp3d-profiler";
+
+/// The name of the application for display.
+pub const APP_NAME: &str = "BP3D Profiler";
+
+//
+// --> Network constants <--
+//
+
+/// Timeout for all network reads.
+pub const NET_READ_DURATION: Duration = Duration::from_millis(500);
+
+/// Default size of fast forward command buffer (512 in debug and 8192 in release).
+///
+/// This is set to 512 in debug because druid is atrociously slow in that configuration.
+#[cfg(debug_assertions)]
+pub const DEFAULT_MAX_SUB_BUFFER: usize = 512;
+
+/// Default size of fast forward command buffer (512 in debug and 8192 in release).
+///
+/// This is set to 512 in debug because druid is atrociously slow in that configuration.
+#[cfg(not(debug_assertions))]
+pub const DEFAULT_MAX_SUB_BUFFER: usize = 8192;
+
+/// The multiplier to multiply to the size of the fast forward command buffer to obtain the size of
+/// the main command buffer and channel.
+pub const MAX_BUFFER_MULTIPLIER: usize = 2;
+
+/// Version of UDP auto-discovery protocol.
+pub const AUTODISCOVERY_PROTOCOL_VERSION: u8 = 0;
+
+/// The default port for both UDP (auto discovery) and TCP.
+pub const DEFAULT_PORT: u16 = 4026;
