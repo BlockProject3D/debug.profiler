@@ -29,20 +29,20 @@
 use druid::{LensExt, Widget, WidgetExt, WindowDesc};
 use druid::text::ParseFormatter;
 use druid::widget::{Checkbox, Flex, Label, TextBox, ValueTextBox};
-use druid_widget_nursery::ListSelect;
+use druid_widget_nursery::{ListSelect, WidgetExt as _};
 use crate::state::{Preferences, State, Theme};
 use crate::view::menu::build_basic_menu;
 use crate::Window;
 use crate::window::Destroy;
 
-fn preferences_window() -> impl Widget<State> {
+fn preferences_window() -> impl Widget<Preferences> {
     Flex::column()
         .with_child(
             Flex::row()
                 .with_child(Label::new("Maximum history length (0 = unlimited): "))
                 .with_child(
                     ValueTextBox::new(TextBox::new(), ParseFormatter::new())
-                        .lens(State::preferences.then(Preferences::max_history))
+                        .lens(Preferences::max_history)
                 )
         )
         .with_spacer(10.0)
@@ -51,7 +51,7 @@ fn preferences_window() -> impl Widget<State> {
                 .with_child(Label::new("Maximum events (0 = unlimited): "))
                 .with_child(
                     ValueTextBox::new(TextBox::new(), ParseFormatter::new())
-                        .lens(State::preferences.then(Preferences::max_events))
+                        .lens(Preferences::max_events)
                 )
         )
         .with_spacer(10.0)
@@ -60,7 +60,7 @@ fn preferences_window() -> impl Widget<State> {
                 .with_child(Label::new("Maximum size for the fast-forward buffer (0 = unlimited): "))
                 .with_child(
                     ValueTextBox::new(TextBox::new(), ParseFormatter::new())
-                        .lens(State::preferences.then(Preferences::max_sub_buffer))
+                        .lens(Preferences::max_sub_buffer)
                 )
         )
         .with_spacer(10.0)
@@ -71,13 +71,13 @@ fn preferences_window() -> impl Widget<State> {
                     ListSelect::new(vec![
                         ("Light", Theme::Light),
                         ("Dark", Theme::Dark)
-                    ]).lens(State::preferences.then(Preferences::theme))
+                    ]).lens(Preferences::theme)
                 )
         )
         .with_spacer(10.0)
         .with_child(
             Checkbox::new("Inherit variables from parent")
-                .lens(State::preferences.then(Preferences::inherit))
+                .lens(Preferences::inherit)
         )
         .center()
 }
@@ -86,7 +86,8 @@ pub struct PreferencesWindow;
 
 impl Window for PreferencesWindow {
     fn build(&self) -> WindowDesc<State> {
-        WindowDesc::new(preferences_window()).menu(build_basic_menu).title("Preferences")
+        WindowDesc::new(preferences_window().lens(State::preferences))
+            .menu(build_basic_menu).title("Preferences")
     }
 
     fn destructor(&self) -> Option<Box<dyn Destroy>> {
