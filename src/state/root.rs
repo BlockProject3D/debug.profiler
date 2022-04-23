@@ -26,32 +26,45 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError};
-use view::theme;
-use crate::thread::BackgroundThread;
-use crate::window::Window;
+use std::net::IpAddr;
+use druid::{Data, Lens};
+use druid::im::{HashMap, Vector};
+use crate::state::{Preferences, Span, SpanData, StateEvents, StateHistory};
+use crate::state::window_map::WindowMap;
 
-mod state;
-mod delegate;
-mod command;
-mod view;
-mod window;
-mod thread;
-mod constants;
+#[derive(Clone, Data)]
+pub struct Peer {
+    pub name: String,
+    pub addr: IpAddr
+}
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let mut thread = BackgroundThread::new(receiver);
-        thread.run();
-    });
-    let res = AppLauncher::with_window(window::MainWindow.build())
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+#[derive(Clone, Data, Lens, Default)]
+pub struct State {
+    pub tree: Span,
+    pub tree_data: HashMap<u32, SpanData>,
+    pub connected: bool,
+    pub address: String,
+    pub status: String,
+    pub selected: u32,
+    pub event_windows: WindowMap<StateEvents>,
+    pub history_windows: WindowMap<StateHistory>,
+    pub preferences: Preferences,
+    pub discovered_peers: Vector<Peer>,
+    pub selected_peer: Option<IpAddr>
+}
+
+impl State {
+    pub fn get_field<T: Default, F: FnOnce(&SpanData) -> T>(&self, f: F) -> T {
+        self.tree_data.get(&self.selected).map(f).unwrap_or_default()
+    }
+
+    pub fn reset(&mut self) {
+        self.selected = 0;
+        self.address = "".into();
+        self.tree = Span::default();
+        self.tree_data = druid::im::HashMap::new();
+        self.connected = false;
+        self.status = "".into();
+        self.selected_peer = None;
+    }
 }

@@ -26,32 +26,27 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError};
-use view::theme;
-use crate::thread::BackgroundThread;
-use crate::window::Window;
+mod preferences;
+mod tree;
+mod span;
+mod windows;
+mod root;
+mod window_map;
 
-mod state;
-mod delegate;
-mod command;
-mod view;
-mod window;
-mod thread;
-mod constants;
+/// This module contains all states and related implementations required to support the tree of all
+/// tracing spans.
+pub use tree::*;
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let mut thread = BackgroundThread::new(receiver);
-        thread.run();
-    });
-    let res = AppLauncher::with_window(window::MainWindow.build())
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
-}
+/// This module contains all state and related implementation required to support all application
+/// preferences.
+pub use preferences::*;
+
+/// This modules contains all state and related implementations required to support all data
+/// associated with tracing spans.
+pub use span::*;
+
+/// This modules contains all states associated with sub-windows.
+pub use windows::*;
+
+/// The module contains the root state and related implementations.
+pub use root::*;

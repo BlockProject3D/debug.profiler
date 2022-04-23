@@ -26,32 +26,21 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
-use druid::{AppLauncher, PlatformError};
-use view::theme;
-use crate::thread::BackgroundThread;
-use crate::window::Window;
+use std::sync::Arc;
+use druid::{Data, Lens};
+use druid::im::Vector;
+use crate::state::{Event, SpanLogEntry};
 
-mod state;
-mod delegate;
-mod command;
-mod view;
-mod window;
-mod thread;
-mod constants;
+//The state for an events window.
+#[derive(Clone, Data, Lens)]
+pub struct StateEvents {
+    pub selected_event: Arc<Event>,
+    pub events: Vector<Arc<Event>>
+}
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let mut thread = BackgroundThread::new(receiver);
-        thread.run();
-    });
-    let res = AppLauncher::with_window(window::MainWindow.build())
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+//The state for a history window.
+#[derive(Clone, Data, Lens)]
+pub struct StateHistory {
+    pub selected_history: SpanLogEntry,
+    pub history: Vector<SpanLogEntry>
 }
