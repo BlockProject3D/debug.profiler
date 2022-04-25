@@ -50,7 +50,7 @@ impl<T: Connection> BaseWorker<T> {
     }
 
     pub fn send(&self, msg: T::Message) {
-        self.channel.send(msg).unwrap();
+        self.channel.send(msg).unwrap(); //FIXME: For some weird reasons this randomly panics.
     }
 }
 
