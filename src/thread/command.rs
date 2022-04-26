@@ -27,7 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::collections::VecDeque;
-use crossbeam_channel::Receiver;
+use tokio::sync::mpsc::Receiver;
 use druid::ExtEventSink;
 use crate::constants::{DEFAULT_MAX_SUB_BUFFER, MAX_BUFFER_MULTIPLIER};
 use super::network_types::Command as NetCommand;
@@ -70,10 +70,10 @@ impl Buffer {
         self.terminate_received
     }
 
-    pub fn try_submit(&mut self, channel: &Receiver<Result<NetCommand, String>>) -> Result<(), String> {
+    pub fn try_submit<T, F: Fn(T) -> Result<NetCommand, String>>(&mut self, channel: &mut Receiver<T>, map: F) -> Result<(), String> {
         while self.queue.len() < self.max_buffer {
             match channel.try_recv() {
-                Ok(msg) => match msg {
+                Ok(msg) => match map(msg) {
                     Ok(v) => {
                         if v.is_terminate() {
                             self.terminate_received = true;

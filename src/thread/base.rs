@@ -29,10 +29,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
-use crossbeam_channel::{bounded, Receiver, Sender};
+//use crossbeam_channel::{bounded, Receiver, Sender};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::oneshot;
 use druid::ExtEventSink;
+use async_trait::async_trait;
 
-pub struct BaseWorker<T: Connection> {
+/*pub struct BaseWorker<T: Connection> {
     channel: Sender<T::Message>,
     exit_flag: Arc<AtomicBool>
 }
@@ -52,10 +55,11 @@ impl<T: Connection> BaseWorker<T> {
     pub fn send(&self, msg: T::Message) {
         self.channel.send(msg).unwrap(); //FIXME: For some weird reasons this randomly panics.
     }
-}
+}*/
 
+#[async_trait]
 pub trait Run<T: Connection>: Send {
-    fn run(&mut self, base: &BaseWorker<T>);
+    async fn run(&mut self);
 }
 
 pub trait Connection where Self: Sized {
@@ -64,44 +68,55 @@ pub trait Connection where Self: Sized {
     type Parameters;
 
     fn max_messages(&self) -> usize;
-    fn new(sink: &ExtEventSink, params: Self::Parameters) -> Option<(Self, Self::Worker)>;
-    fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool;
+    fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker;
+    fn new(params: Self::Parameters) -> Option<Self>;
+    fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool;
 }
 
 pub struct BaseConnection<T: Connection> {
     channel: Receiver<T::Message>,
     thread_handle: JoinHandle<()>,
-    exit_flag: Arc<AtomicBool>,
+    //exit_flag: Arc<AtomicBool>,
+    exit_flag: Option<oneshot::Sender<()>>,
     sink: ExtEventSink,
     inner: T
 }
 
 impl<T: 'static + Connection> BaseConnection<T> {
     pub fn new(sink: ExtEventSink, params: T::Parameters) -> Option<BaseConnection<T>> {
-        let (inner, mut worker) = T::new(&sink, params)?;
-        let exit_flag = Arc::new(AtomicBool::new(false));
-        let (sender, receiver) = bounded(inner.max_messages());
-        let base = BaseWorker::new(sender, exit_flag.clone());
+        let inner = T::new(params)?;
+        //let exit_flag = Arc::new(AtomicBool::new(false));
+        let (exit_flag, exit_flag1) = oneshot::channel();
+        let (sender, receiver) = channel(inner.max_messages());
+        let mut worker = inner.new_worker(sender);
+        //let base = BaseWorker::new(sender, exit_flag.clone());
         let thread_handle = std::thread::spawn(move || {
-            worker.run(&base)
+            let runtime = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
+            runtime.block_on(async {
+                tokio::select! {
+                    _ = worker.run() => (),
+                    _ = exit_flag1 => ()
+                }
+            });
         });
         Some(BaseConnection {
             sink,
             channel: receiver,
-            exit_flag,
+            exit_flag: Some(exit_flag),
             thread_handle,
             inner
         })
     }
 
-    pub fn end(self) {
+    pub fn end(mut self) {
         while self.channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
-        self.exit_flag.store(true, Ordering::Relaxed);
+        self.exit_flag.take().map(|v| v.send(()));
+        //self.exit_flag.store(true, Ordering::Relaxed);
         self.thread_handle.join().unwrap();
     }
 
     pub fn step(mut self) -> Option<Self> {
-        if !self.inner.step(&self.sink, &self.channel) {
+        if !self.inner.step(&self.sink, &mut self.channel) {
             self.end();
             return None;
         }

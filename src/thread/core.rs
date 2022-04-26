@@ -28,14 +28,14 @@
 
 use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::Duration;
-use crate::thread::auto_discover::AutoDiscoveryConnection;
+//use crate::thread::auto_discover::AutoDiscoveryConnection;
 use crate::thread::Command;
 use crate::thread::connection::Connection;
 
 pub struct BackgroundThread {
     channel: Receiver<Command>,
     connection: Option<Connection>,
-    auto_discovery: Option<AutoDiscoveryConnection>
+    //auto_discovery: Option<AutoDiscoveryConnection>
 }
 
 impl BackgroundThread {
@@ -43,7 +43,7 @@ impl BackgroundThread {
         BackgroundThread {
             channel,
             connection: None,
-            auto_discovery: None
+            //auto_discovery: None
         }
     }
 
@@ -67,7 +67,7 @@ impl BackgroundThread {
                         self.connection = Connection::new(sink, (ip, max_sub_buffer));
                         if self.connection.is_some() {
                             //If we have a new connection, terminate auto-discovery service.
-                            self.auto_discovery.take().map(|v| v.end());
+                            //self.auto_discovery.take().map(|v| v.end());
                         }
                     },
                     Command::Terminate => break,
@@ -80,17 +80,17 @@ impl BackgroundThread {
                             //If we are already connected skip...
                             continue;
                         }
-                        self.auto_discovery = AutoDiscoveryConnection::new(sink, ());
+                        //self.auto_discovery = AutoDiscoveryConnection::new(sink, ());
                     }
                 }
             }
             //Update connections.
             self.connection = self.connection.take().and_then(|v| v.step());
-            self.auto_discovery = self.auto_discovery.take().and_then(|v| v.step());
+            //self.auto_discovery = self.auto_discovery.take().and_then(|v| v.step());
             std::thread::sleep(Duration::from_millis(50));
         }
         //Terminate all connections.
         self.connection.take().map(|v| v.end());
-        self.auto_discovery.take().map(|v| v.end());
+        //self.auto_discovery.take().map(|v| v.end());
     }
 }

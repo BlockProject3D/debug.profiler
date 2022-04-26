@@ -26,20 +26,27 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::{Read, Write};
-use std::net::TcpStream;
+
 use bincode::ErrorKind;
-use crossbeam_channel::Receiver;
+use tokio::sync::mpsc::Receiver;
 use druid::{ExtEventSink, Target};
+use tokio::sync::mpsc::Sender;
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::constants::NET_READ_DURATION;
-use crate::thread::base::{BaseWorker, Run};
-use crate::thread::network_types::{Hello, HELLO_PACKET, MatchResult};
+use crate::thread::base::Run;
+use crate::thread::network_types::{Command, Hello, HELLO_PACKET, MatchResult};
 use super::network_types::Command as NetCommand;
+use async_trait::async_trait;
+use futures::TryStreamExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio_serde::formats::SymmetricalBincode;
+use tokio_serde::SymmetricallyFramed;
+use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
 
-fn handle_hello(socket: &mut TcpStream) -> Result<(), String> {
+async fn handle_hello(socket: &mut TcpStream) -> Result<(), String> {
     let mut block = [0; 40];
-    socket.read_exact(&mut block).map_err(|e| e.to_string())?;
+    socket.read_exact(&mut block).await.map_err(|e| e.to_string())?;
     let msg = Hello::from_bytes(block);
     match HELLO_PACKET.matches(&msg) {
         MatchResult::SignatureMismatch => return Err(format!("protocol signature mismatch ({:?})",
@@ -49,29 +56,50 @@ fn handle_hello(socket: &mut TcpStream) -> Result<(), String> {
                                                            msg.version.pre_release)),
         MatchResult::Ok => ()
     }
-    socket.write_all(&HELLO_PACKET.to_bytes()).map_err(|e| e.to_string())?;
+    socket.write_all(&HELLO_PACKET.to_bytes()).await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
+#[derive(Debug)]
+enum Message {
+    ConnectionSuccess,
+    ConnectionError(String),
+    NetworkError(String),
+    NetworkCommand(NetCommand)
+}
+
+impl Message {
+    pub fn into_result(self) -> Result<NetCommand, String> {
+        match self {
+            Message::ConnectionSuccess => unreachable!(),
+            Message::ConnectionError(_) => unreachable!(),
+            Message::NetworkError(e) => Err(e),
+            Message::NetworkCommand(v) => Ok(v)
+        }
+    }
+}
+
 struct Worker {
-    stream: TcpStream
+    channel: Sender<Message>,
+    ip: String
+    //stream: TcpStream
 }
 
 impl Worker {
-    pub fn new(stream: TcpStream) -> Worker {
-        Worker {
-            stream
-        }
+    pub fn new(ip: String, channel: Sender<Message>) -> Worker {
+        Worker { ip, channel }
     }
 
-    pub fn connect(ip: String) -> Result<TcpStream, String> {
+    /*pub fn connect(ip: String) -> Result<TcpStream, String> {
         let mut socket = TcpStream::connect(&ip).map_err(|e| e.to_string())?;
-        socket.set_read_timeout(Some(NET_READ_DURATION)).map_err(|e| e.to_string())?;
+        //The kernel of macOS is dysfunctional: it regularly throws err 35 with send_all if
+        // non-blocking!
         handle_hello(&mut socket)?;
+        socket.set_read_timeout(Some(NET_READ_DURATION)).map_err(|e| e.to_string())?;
         Ok(socket)
-    }
+    }*/
 
-    pub fn try_read_command(&mut self) -> Result<Option<NetCommand>, String> {
+    /*pub fn try_read_command(&mut self) -> Result<Option<NetCommand>, String> {
         match bincode::deserialize_from(&mut self.stream) {
             Ok(v) => Ok(Some(v)),
             Err(e) => {
@@ -100,27 +128,71 @@ impl Worker {
             }
         }
         false
+    }*/
+
+    async fn connect(&self) -> Result<TcpStream, String> {
+        let mut stream = TcpStream::connect(&self.ip).await.map_err(|e| e.to_string())?;
+        handle_hello(&mut stream).await?;
+        Ok(stream)
+    }
+
+    async fn handle_frame(&mut self, res: std::io::Result<Option<NetCommand>>) -> bool {
+        match res {
+            Ok(v) => {
+                match v {
+                    None => (),
+                    Some(v) => {
+                        self.channel.send(Message::NetworkCommand(v)).await.unwrap();
+                    }
+                }
+                false
+            }
+            Err(e) => {
+                self.channel.send(Message::NetworkError(e.to_string())).await.unwrap();
+                true
+            }
+        }
     }
 }
 
+//TODO: Rewrite to use tokio instead which is gonna solve a great deal of bugs whiich happens with
+// set_read_timeout and set_write_timeout.
+
+#[async_trait]
 impl Run<Internal> for Worker {
-    fn run(&mut self, base: &BaseWorker<Internal>) {
+    async fn run(&mut self) {
+        let stream = match self.connect().await {
+            Ok(v) => v,
+            Err(e) => {
+                self.channel.send(Message::ConnectionError(e)).await.unwrap();
+                return;
+            }
+        };
+        self.channel.send(Message::ConnectionSuccess).await.unwrap();
+        let frames = FramedRead::new(stream, LengthDelimitedCodec::new());
+        let mut deserializer = SymmetricallyFramed::new(frames, SymmetricalBincode::<NetCommand>::default());
         loop {
-            if self.read_command(base) || base.should_exit() {
-                break
+            let res = deserializer.try_next().await;
+            //FIXME: "frame size too big", possible re-write using pure tokio and bincode with
+            // BufReader; requires however to record the size of each packet in bp3d-tracing
+            // (essentially altering the protocol again).
+            if self.handle_frame(res).await {
+                break;
             }
         }
     }
 }
 
 struct Internal {
-    buffer: super::command::Buffer
+    buffer: super::command::Buffer,
+    ip: String,
+    connected: bool
 }
 
 type Params = (String, Option<usize>);
 
 impl super::base::Connection for Internal {
-    type Message = Result<NetCommand, String>;
+    type Message = Message;
     type Worker = Worker;
     type Parameters = Params;
 
@@ -128,8 +200,12 @@ impl super::base::Connection for Internal {
         self.buffer.max_buffer()
     }
 
-    fn new(sink: &ExtEventSink, (ip, max_sub_buffer): Params) -> Option<(Self, Self::Worker)> {
-        let socket = match Worker::connect(ip) {
+    fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker {
+        Worker::new(self.ip.clone(), channel)
+    }
+
+    fn new((ip, max_sub_buffer): Params) -> Option<Self> {
+        /*let socket = match Worker::connect(ip) {
             Ok(v) => v,
             Err(e) => {
                 sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
@@ -141,11 +217,33 @@ impl super::base::Connection for Internal {
             buffer: super::command::Buffer::new(max_sub_buffer)
         };
         let worker = Worker::new(socket);
-        Some((this, worker))
+        Some((this, worker))*/
+        Some(Internal {
+            buffer: super::command::Buffer::new(max_sub_buffer),
+            ip,
+            connected: false
+        })
     }
 
-    fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool {
-        if let Err(e) = self.buffer.try_submit(channel) {
+    fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool {
+        if !self.connected {
+            while let Ok(msg) = channel.try_recv() {
+                match msg {
+                    Message::ConnectionSuccess => {
+                        sink.submit_command(CONNECTION_SUCCESS, true, Target::Auto).unwrap();
+                        self.connected = true;
+                        break;
+                    },
+                    Message::ConnectionError(e) => {
+                        sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
+                        return false;
+                    }
+                    Message::NetworkError(_) => unreachable!(),
+                    Message::NetworkCommand(_) => unreachable!()
+                }
+            }
+        }
+        if let Err(e) = self.buffer.try_submit(channel, |v| v.into_result()) {
             sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
             return false;
         }
