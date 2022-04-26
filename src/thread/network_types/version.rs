@@ -55,13 +55,13 @@ pub enum MatchResult {
 }
 
 pub struct Version {
-    major: u64,
-    pre_release: Option<[u8; 24]>,
+    pub major: u64,
+    pub pre_release: Option<[u8; 24]>,
 }
 
 pub struct Hello {
-    signature: [u8; 8],
-    version: Version
+    pub signature: [u8; 8],
+    pub version: Version
 }
 
 impl Hello {
