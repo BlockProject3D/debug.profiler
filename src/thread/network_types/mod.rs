@@ -30,7 +30,9 @@
 mod value;
 mod metadata;
 mod command;
+mod version;
 
 pub use value::*;
 pub use metadata::*;
 pub use command::*;
+pub use version::*;
