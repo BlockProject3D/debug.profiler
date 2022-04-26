@@ -26,6 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::io::{Read, Write};
 use std::net::TcpStream;
 use bincode::ErrorKind;
 use crossbeam_channel::Receiver;
@@ -33,7 +34,24 @@ use druid::{ExtEventSink, Target};
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::constants::NET_READ_DURATION;
 use crate::thread::base::{BaseWorker, Run};
+use crate::thread::network_types::{Hello, HELLO_PACKET, MatchResult};
 use super::network_types::Command as NetCommand;
+
+fn handle_hello(socket: &mut TcpStream) -> Result<(), String> {
+    let mut block = [0; 40];
+    socket.read_exact(&mut block).map_err(|e| e.to_string())?;
+    let msg = Hello::from_bytes(block);
+    match HELLO_PACKET.matches(&msg) {
+        MatchResult::SignatureMismatch => return Err(format!("protocol signature mismatch ({:?})",
+                                                             msg.signature)),
+        MatchResult::VersionMismatch => return Err(format!("protocol version mismatch ({} - {:?})",
+                                                           msg.version.major,
+                                                           msg.version.pre_release)),
+        MatchResult::Ok => ()
+    }
+    socket.write_all(&HELLO_PACKET.to_bytes()).map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 struct Worker {
     stream: TcpStream
@@ -47,8 +65,9 @@ impl Worker {
     }
 
     pub fn connect(ip: String) -> Result<TcpStream, String> {
-        let socket = TcpStream::connect(&ip).map_err(|e| e.to_string())?;
+        let mut socket = TcpStream::connect(&ip).map_err(|e| e.to_string())?;
         socket.set_read_timeout(Some(NET_READ_DURATION)).map_err(|e| e.to_string())?;
+        handle_hello(&mut socket)?;
         Ok(socket)
     }
 
