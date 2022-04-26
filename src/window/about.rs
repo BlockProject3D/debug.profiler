@@ -30,6 +30,7 @@ use druid::{Color, Widget, WidgetExt, WindowDesc};
 use druid::widget::{BackgroundBrush, Flex, Label};
 use crate::constants::APP_NAME;
 use crate::state::State;
+use crate::view::common::bold_font;
 use crate::view::menu::build_basic_menu;
 use crate::window::{Destroy, Window};
 
@@ -65,9 +66,10 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."#;
 
 fn view() -> impl Widget<State> {
+    let namev = format!("{}  |  {}", APP_NAME, env!("CARGO_PKG_VERSION"));
     Flex::column()
-        .with_flex_child(Label::new(APP_NAME), 1.0)
-        .with_spacer(10.0)
+        .with_flex_child(Label::new(namev).with_font(bold_font()), 1.0)
+        .with_spacer(30.0)
         .with_flex_child(Label::new(ABOUT_LINE1), 1.0)
         .with_spacer(20.0)
         .with_flex_child(Label::new(ABOUT_LINE2), 1.0)
