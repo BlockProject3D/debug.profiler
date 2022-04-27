@@ -26,36 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::task::JoinHandle;
-//use crossbeam_channel::{bounded, Receiver, Sender};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use druid::ExtEventSink;
 use async_trait::async_trait;
-
-/*pub struct BaseWorker<T: Connection> {
-    channel: Sender<T::Message>,
-    exit_flag: Arc<AtomicBool>
-}
-
-impl<T: Connection> BaseWorker<T> {
-    fn new(channel: Sender<T::Message>, exit_flag: Arc<AtomicBool>) -> BaseWorker<T> {
-        BaseWorker {
-            channel,
-            exit_flag
-        }
-    }
-
-    pub fn should_exit(&self) -> bool {
-        self.exit_flag.load(Ordering::Relaxed)
-    }
-
-    pub fn send(&self, msg: T::Message) {
-        self.channel.send(msg).unwrap(); //FIXME: For some weird reasons this randomly panics.
-    }
-}*/
 
 #[async_trait]
 pub trait Run: Send {
@@ -72,7 +47,6 @@ pub trait Connection where Self: Sized {
     fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker;
     fn new_core(&self, sink: ExtEventSink, channel: Receiver<Self::Message>) -> Self::Core;
     fn new(params: Self::Parameters) -> Option<Self>;
-    //fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool;
 }
 
 pub struct BaseConnection {
@@ -96,7 +70,6 @@ impl BaseConnection {
             }
         });
         let mut worker = inner.new_worker(sender);
-        //let base = BaseWorker::new(sender, exit_flag.clone());
         let worker_task_handle = tokio::spawn(async move {
             tokio::select! {
                 _ = worker.run() => (),
