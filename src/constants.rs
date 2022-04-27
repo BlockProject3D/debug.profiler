@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::time::Duration;
 use druid::Color;
 
 //
@@ -42,9 +41,6 @@ pub const APP_NAME: &str = "BP3D Profiler";
 //
 // --> Network constants <--
 //
-
-/// Timeout for all network reads.
-pub const NET_READ_DURATION: Duration = Duration::from_millis(500);
 
 /// Default size of fast forward command buffer (512 in debug and 8192 in release).
 ///

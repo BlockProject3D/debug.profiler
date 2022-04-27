@@ -32,7 +32,7 @@ use druid::im::{HashMap, Vector};
 use crate::state::{Preferences, Span, SpanData, StateEvents, StateHistory};
 use crate::state::window_map::WindowMap;
 
-#[derive(Clone, Data)]
+#[derive(Debug, Clone, Data)]
 pub struct Peer {
     pub name: String,
     pub addr: IpAddr

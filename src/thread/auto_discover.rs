@@ -26,15 +26,16 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::io::ErrorKind;
-use std::net::{Ipv4Addr, UdpSocket};
-use crossbeam_channel::Receiver;
 use druid::{ExtEventSink, Target};
-use druid::im::HashSet;
+use std::collections::HashSet;
+use std::net::Ipv4Addr;
 use crate::command::{NETWORK_PEER, NETWORK_PEER_ERR};
-use crate::constants::{AUTODISCOVERY_PROTOCOL_VERSION, DEFAULT_PORT, NET_READ_DURATION};
+use crate::constants::{AUTODISCOVERY_PROTOCOL_VERSION, DEFAULT_PORT};
 use crate::state::Peer;
-use crate::thread::base::{BaseWorker, Connection, Run};
+use crate::thread::base::{BaseConnection, Connection, Run};
+use async_trait::async_trait;
+use tokio::net::UdpSocket;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 // The maximum number of characters allowed for the application name in the auto-discover list.
 const NAME_MAX_CHARS: usize = 126;
@@ -44,68 +45,86 @@ const MAX_BUFFER: usize = 64;
 
 const PROTOCOL_SIGNATURE: u8 = b'B';
 
+type Message = Result<Peer, String>;
+
 struct Worker {
-    socket: UdpSocket,
-    set: HashSet<String>
+    set: HashSet<String>,
+    channel: Sender<Message>
 }
 
 impl Worker {
-    pub fn new() -> std::io::Result<Worker> {
-        // Create the UDP connection that will be used to receive auto-discover LAN broadcast
-        // packets.
-        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, DEFAULT_PORT))?;
-        socket.set_read_timeout(Some(NET_READ_DURATION))?;
-        Ok(Worker {
-            socket,
-            set: HashSet::new()
-        })
+    pub fn new(channel: Sender<Message>) -> Worker {
+        Worker {
+            set: HashSet::new(),
+            channel
+        }
     }
 
-    pub fn try_read_peer(&mut self) -> Result<Option<Peer>, String> {
+    async fn read_peer(&mut self, socket: &mut UdpSocket) -> Result<Option<Peer>, String> {
         let mut buffer: [u8; NAME_MAX_CHARS + 2] = [0; NAME_MAX_CHARS + 2];
-        match self.socket.recv_from(&mut buffer) {
-            Ok((len, peer_addr)) => {
-                if len != NAME_MAX_CHARS + 2 || buffer[0] != PROTOCOL_SIGNATURE
-                    || buffer[1] != AUTODISCOVERY_PROTOCOL_VERSION {
-                    // The message is not valid for this application.
-                    return Ok(None);
+        let (len, peer_addr) = socket.recv_from(&mut buffer).await.map_err(|e| e.to_string())?;
+        if len != NAME_MAX_CHARS + 2 || buffer[0] != PROTOCOL_SIGNATURE
+            || buffer[1] != AUTODISCOVERY_PROTOCOL_VERSION {
+            // The message is not valid for this application.
+            return Ok(None);
+        }
+        let str = buffer[2..].split(|v| *v == 0).next().unwrap_or(&[]);
+        match std::str::from_utf8(str) {
+            Ok(name) => {
+                if self.set.contains(name) {
+                    Ok(None)
+                } else {
+                    let peer = Peer {
+                        addr: peer_addr.ip(),
+                        name: name.into()
+                    };
+                    self.set.insert(name.into());
+                    Ok(Some(peer))
                 }
-                let str = buffer[2..].split(|v| *v == 0).next().unwrap_or(&[]);
-                match std::str::from_utf8(str) {
-                    Ok(name) => {
-                        if self.set.contains(name) {
-                            Ok(None)
-                        } else {
-                            let peer = Peer {
-                                addr: peer_addr.ip(),
-                                name: name.into()
-                            };
-                            self.set.insert(name.into());
-                            Ok(Some(peer))
-                        }
-                    }
-                    Err(_) => Ok(None)
-                }
-            },
+            }
+            Err(_) => Ok(None)
+        }
+    }
+}
+
+#[async_trait]
+impl Run for Worker {
+    async fn run(&mut self) {
+        let mut socket = match UdpSocket::bind((Ipv4Addr::UNSPECIFIED, DEFAULT_PORT)).await {
+            Ok(v) => v,
             Err(e) => {
-                if e.kind() == ErrorKind::WouldBlock || e.kind() == ErrorKind::TimedOut {
-                    return Ok(None);
-                }
-                Err(e.to_string())
+                self.channel.send(Err(e.to_string())).await.unwrap();
+                return;
+            }
+        };
+        loop {
+            match self.read_peer(&mut socket).await {
+                Ok(v) => match v {
+                    Some(v) => self.channel.send(Ok(v)).await.unwrap(),
+                    None => ()
+                },
+                Err(e) => self.channel.send(Err(e)).await.unwrap()
             }
         }
     }
 }
 
-impl Run<Internal> for Worker {
-    fn run(&mut self, base: &BaseWorker<Internal>) {
-        loop {
-            if base.should_exit() {
-                break;
-            }
-            if let Some(res) = self.try_read_peer().transpose() {
-                base.send(res);
-            }
+struct Core {
+    channel: Receiver<Message>,
+    sink: ExtEventSink
+}
+
+#[async_trait]
+impl Run for Core {
+    async fn run(&mut self) {
+        while let Some(msg) = self.channel.recv().await {
+            match msg {
+                Ok(v) => self.sink.submit_command(NETWORK_PEER, v, Target::Auto).unwrap(),
+                Err(e) => {
+                    self.sink.submit_command(NETWORK_PEER_ERR, e, Target::Auto).unwrap();
+                    break;
+                }
+            };
         }
     }
 }
@@ -113,31 +132,28 @@ impl Run<Internal> for Worker {
 struct Internal;
 
 impl Connection for Internal {
-    type Message = Result<Peer, String>;
+    type Message = Message;
     type Worker = Worker;
+    type Core = Core;
     type Parameters = ();
 
     fn max_messages(&self) -> usize {
         MAX_BUFFER
     }
 
-    fn new(_: &ExtEventSink, _: Self::Parameters) -> Option<(Self, Self::Worker)> {
-        let worker = Worker::new().ok()?;
-        Some((Internal, worker))
+    fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker {
+        Worker::new(channel)
     }
 
-    fn step(&mut self, sink: &ExtEventSink, channel: &Receiver<Self::Message>) -> bool {
-        while let Ok(v) = channel.try_recv() {
-            match v {
-                Ok(v) => sink.submit_command(NETWORK_PEER, v, Target::Auto).unwrap(),
-                Err(e) => {
-                    sink.submit_command(NETWORK_PEER_ERR, e, Target::Auto).unwrap();
-                    return false;
-                }
-            }
-        }
-        return true;
+    fn new_core(&self, sink: ExtEventSink, channel: Receiver<Self::Message>) -> Self::Core {
+        Core { channel, sink }
+    }
+
+    fn new(_: Self::Parameters) -> Option<Self> {
+        Some(Internal)
     }
 }
 
-super::base::hack_rust_garbage_private_rule!(AutoDiscoveryConnection<(), Internal>);
+pub fn new(sink: ExtEventSink, params: ()) -> Option<BaseConnection> {
+    BaseConnection::new::<Internal>(sink, params)
+}

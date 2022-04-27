@@ -30,7 +30,7 @@ mod core;
 mod command;
 pub mod network_types;
 mod connection;
-//mod auto_discover;
+mod auto_discover;
 mod base;
 
 pub use self::core::BackgroundThread;

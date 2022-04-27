@@ -28,14 +28,14 @@
 
 use tokio::sync::mpsc::{UnboundedReceiver};
 use crate::thread::base::ConnectionWrapper;
-//use crate::thread::auto_discover::AutoDiscoveryConnection;
+use crate::thread::auto_discover;
 use crate::thread::Command;
 use crate::thread::connection;
 
 pub struct BackgroundThread {
     channel: UnboundedReceiver<Command>,
     connection: ConnectionWrapper,
-    //auto_discovery: Option<AutoDiscoveryConnection>
+    auto_discovery: ConnectionWrapper
 }
 
 impl BackgroundThread {
@@ -43,7 +43,7 @@ impl BackgroundThread {
         BackgroundThread {
             channel,
             connection: ConnectionWrapper::none(),
-            //auto_discovery: None
+            auto_discovery: ConnectionWrapper::none()
         }
     }
 
@@ -60,68 +60,25 @@ impl BackgroundThread {
                         self.connection = ConnectionWrapper::new(connection::new, sink, (ip, max_sub_buffer));
                         if self.connection.is_some() {
                             //If we have a new connection, terminate auto-discovery service.
-                            //self.auto_discovery.take().map(|v| v.end());
+                            self.auto_discovery.end().await;
                         }
                     },
                     Command::Terminate => break,
                     Command::Disconnect => { // Can't be inline because rust cannot accept
                         // Option<()> as ().
-                        self.connection.end().await
+                        self.connection.end().await;
                     }
                     Command::StartAutoDiscovery(sink) => {
-                        /*if self.connection.is_some() {
+                        if self.connection.is_some() {
                             //If we are already connected skip...
                             continue;
-                        }*/
-                        //self.auto_discovery = AutoDiscoveryConnection::new(sink, ());
+                        }
+                        self.auto_discovery = ConnectionWrapper::new(auto_discover::new, sink, ());
                     }
                 }
             }
-            self.connection.end().await
+            self.connection.end().await;
+            self.auto_discovery.end().await;
         });
-        /*loop {
-            let cmd = match self.channel.try_recv() {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    match e {
-                        TryRecvError::Empty => None,
-                        TryRecvError::Disconnected => break
-                    }
-                }
-            };
-            if let Some(cmd) = cmd {
-                match cmd {
-                    Command::Connect { ip, sink, max_sub_buffer } => {
-                        if self.connection.is_some() {
-                            continue;
-                        }
-                        self.connection = Connection::new(sink, (ip, max_sub_buffer));
-                        if self.connection.is_some() {
-                            //If we have a new connection, terminate auto-discovery service.
-                            //self.auto_discovery.take().map(|v| v.end());
-                        }
-                    },
-                    Command::Terminate => break,
-                    Command::Disconnect => { // Can't be inline because rust cannot accept
-                        // Option<()> as ().
-                        self.connection.take().map(|v| v.end());
-                    }
-                    Command::StartAutoDiscovery(sink) => {
-                        if self.connection.is_some() {
-                            //If we are already connected skip...
-                            continue;
-                        }
-                        //self.auto_discovery = AutoDiscoveryConnection::new(sink, ());
-                    }
-                }
-            }
-            //Update connections.
-            self.connection = self.connection.take().and_then(|v| v.step());
-            //self.auto_discovery = self.auto_discovery.take().and_then(|v| v.step());
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        //Terminate all connections.
-        self.connection.take().map(|v| v.end());
-        //self.auto_discovery.take().map(|v| v.end());*/
     }
 }
