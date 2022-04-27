@@ -28,7 +28,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::JoinHandle;
+use tokio::task::JoinHandle;
 //use crossbeam_channel::{bounded, Receiver, Sender};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
@@ -58,86 +58,85 @@ impl<T: Connection> BaseWorker<T> {
 }*/
 
 #[async_trait]
-pub trait Run<T: Connection>: Send {
+pub trait Run: Send {
     async fn run(&mut self);
 }
 
 pub trait Connection where Self: Sized {
     type Message: Send;
-    type Worker: Run<Self>;
+    type Worker: Run;
+    type Core: Run;
     type Parameters;
 
     fn max_messages(&self) -> usize;
     fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker;
+    fn new_core(&self, sink: ExtEventSink, channel: Receiver<Self::Message>) -> Self::Core;
     fn new(params: Self::Parameters) -> Option<Self>;
-    fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool;
+    //fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool;
 }
 
-pub struct BaseConnection<T: Connection> {
-    channel: Receiver<T::Message>,
-    thread_handle: JoinHandle<()>,
-    //exit_flag: Arc<AtomicBool>,
-    exit_flag: Option<oneshot::Sender<()>>,
-    sink: ExtEventSink,
-    inner: T
+pub struct BaseConnection {
+    worker_task_handle: JoinHandle<()>,
+    core_task_handle: JoinHandle<()>,
+    worker_exit_flag: oneshot::Sender<()>,
+    core_exit_flag: oneshot::Sender<()>
 }
 
-impl<T: 'static + Connection> BaseConnection<T> {
-    pub fn new(sink: ExtEventSink, params: T::Parameters) -> Option<BaseConnection<T>> {
+impl BaseConnection {
+    pub fn new<T: 'static + Connection>(sink: ExtEventSink, params: T::Parameters) -> Option<BaseConnection> {
         let inner = T::new(params)?;
-        //let exit_flag = Arc::new(AtomicBool::new(false));
-        let (exit_flag, exit_flag1) = oneshot::channel();
+        let (worker_exit_flag, worker_exit_flag_recv) = oneshot::channel();
+        let (core_exit_flag, core_exit_flag_recv) = oneshot::channel();
         let (sender, receiver) = channel(inner.max_messages());
+        let mut core = inner.new_core(sink, receiver);
+        let core_task_handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = core.run() => (),
+                _ = core_exit_flag_recv => ()
+            }
+        });
         let mut worker = inner.new_worker(sender);
         //let base = BaseWorker::new(sender, exit_flag.clone());
-        let thread_handle = std::thread::spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread().enable_io().build().unwrap();
-            runtime.block_on(async {
-                tokio::select! {
-                    _ = worker.run() => (),
-                    _ = exit_flag1 => ()
-                }
-            });
+        let worker_task_handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = worker.run() => (),
+                _ = worker_exit_flag_recv => ()
+            }
         });
         Some(BaseConnection {
-            sink,
-            channel: receiver,
-            exit_flag: Some(exit_flag),
-            thread_handle,
-            inner
+            worker_task_handle,
+            core_task_handle,
+            worker_exit_flag,
+            core_exit_flag
         })
     }
 
-    pub fn end(mut self) {
-        while self.channel.try_recv().is_ok() {} //Force empty the channel before attempting to join
-        self.exit_flag.take().map(|v| v.send(()));
-        //self.exit_flag.store(true, Ordering::Relaxed);
-        self.thread_handle.join().unwrap();
-    }
-
-    pub fn step(mut self) -> Option<Self> {
-        if !self.inner.step(&self.sink, &mut self.channel) {
-            self.end();
-            return None;
-        }
-        Some(self)
+    pub async fn end(self) {
+        let _ = self.core_exit_flag.send(());
+        let _ = self.worker_exit_flag.send(());
+        self.worker_task_handle.await.unwrap();
+        self.core_task_handle.await.unwrap();
     }
 }
 
-macro_rules! hack_rust_garbage_private_rule {
-    ($name: ident<$params: ty, $inner: ty>) => {
-        pub struct $name(crate::thread::base::BaseConnection<$inner>);
-        impl $name {
-            pub fn new(sink: ExtEventSink, params: $params) -> Option<$name> {
-                crate::thread::base::BaseConnection::<$inner>::new(sink, params).map($name)
-            }
-            pub fn end(self) {
-                self.0.end()
-            }
-            pub fn step(self) -> Option<Self> {
-                self.0.step().map($name)
-            }
+pub struct ConnectionWrapper(Option<BaseConnection>);
+
+impl ConnectionWrapper {
+    pub fn none() -> Self {
+        Self(None)
+    }
+
+    pub fn new<T, F: FnOnce(ExtEventSink, T) -> Option<BaseConnection>>(func: F, sink: ExtEventSink, params: T) -> Self {
+        Self(func(sink, params))
+    }
+
+    pub fn is_some(&self) -> bool {
+        self.0.is_some()
+    }
+
+    pub async fn end(&mut self) {
+        if let Some(v) = self.0.take() {
+            v.end().await;
         }
-    };
+    }
 }
-pub(crate) use hack_rust_garbage_private_rule;

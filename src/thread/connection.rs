@@ -27,13 +27,14 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
+use std::time::Duration;
 use bincode::ErrorKind;
 use tokio::sync::mpsc::Receiver;
 use druid::{ExtEventSink, Target};
 use tokio::sync::mpsc::Sender;
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
 use crate::constants::NET_READ_DURATION;
-use crate::thread::base::Run;
+use crate::thread::base::{BaseConnection, Run};
 use crate::thread::network_types::{Command, Hello, HELLO_PACKET, MatchResult};
 use super::network_types::Command as NetCommand;
 use async_trait::async_trait;
@@ -159,7 +160,7 @@ impl Worker {
 // set_read_timeout and set_write_timeout.
 
 #[async_trait]
-impl Run<Internal> for Worker {
+impl Run for Worker {
     async fn run(&mut self) {
         let stream = match self.connect().await {
             Ok(v) => v,
@@ -183,10 +184,48 @@ impl Run<Internal> for Worker {
     }
 }
 
-struct Internal {
+struct Core {
     buffer: super::command::Buffer,
+    channel: Receiver<Message>,
+    sink: ExtEventSink
+}
+
+#[async_trait]
+impl Run for Core {
+    async fn run(&mut self) {
+        while let Some(msg) = self.channel.recv().await {
+            match msg {
+                Message::ConnectionSuccess => {
+                    self.sink.submit_command(CONNECTION_SUCCESS, true, Target::Auto).unwrap();
+                    break;
+                },
+                Message::ConnectionError(e) => {
+                    self.sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
+                    return
+                }
+                Message::NetworkError(_) => unreachable!(),
+                Message::NetworkCommand(_) => unreachable!()
+            };
+        }
+        loop {
+            if let Err(e) = self.buffer.try_submit(&mut self.channel, |v| v.into_result()) {
+                self.sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
+                break;
+            }
+            if let Some(batch) = self.buffer.fast_forward() {
+                self.sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
+            }
+            if self.buffer.should_terminate() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+    }
+}
+
+struct Internal {
     ip: String,
-    connected: bool
+    max_sub_buffer: Option<usize>
 }
 
 type Params = (String, Option<usize>);
@@ -194,14 +233,23 @@ type Params = (String, Option<usize>);
 impl super::base::Connection for Internal {
     type Message = Message;
     type Worker = Worker;
+    type Core = Core;
     type Parameters = Params;
 
     fn max_messages(&self) -> usize {
-        self.buffer.max_buffer()
+        super::command::Buffer::new(self.max_sub_buffer).max_buffer()
     }
 
     fn new_worker(&self, channel: Sender<Self::Message>) -> Self::Worker {
         Worker::new(self.ip.clone(), channel)
+    }
+
+    fn new_core(&self, sink: ExtEventSink, channel: Receiver<Self::Message>) -> Self::Core {
+        Core {
+            sink,
+            channel,
+            buffer: super::command::Buffer::new(self.max_sub_buffer),
+        }
     }
 
     fn new((ip, max_sub_buffer): Params) -> Option<Self> {
@@ -219,13 +267,12 @@ impl super::base::Connection for Internal {
         let worker = Worker::new(socket);
         Some((this, worker))*/
         Some(Internal {
-            buffer: super::command::Buffer::new(max_sub_buffer),
             ip,
-            connected: false
+            max_sub_buffer
         })
     }
 
-    fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool {
+    /*fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool {
         if !self.connected {
             while let Ok(msg) = channel.try_recv() {
                 match msg {
@@ -254,7 +301,11 @@ impl super::base::Connection for Internal {
             return false;
         }
         true
-    }
+    }*/
 }
 
-super::base::hack_rust_garbage_private_rule!(Connection<Params, Internal>);
+pub fn new(sink: ExtEventSink, params: Params) -> Option<BaseConnection> {
+    BaseConnection::new::<Internal>(sink, params)
+}
+
+//super::base::hack_rust_garbage_private_rule!(Connection<Params, Internal>);

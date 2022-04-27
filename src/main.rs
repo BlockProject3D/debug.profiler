@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::mpsc::channel;
+use tokio::sync::mpsc::unbounded_channel;
 use druid::{AppLauncher, PlatformError};
 use view::theme;
 use crate::thread::BackgroundThread;
@@ -41,7 +41,7 @@ mod thread;
 mod constants;
 
 fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = channel();
+    let (sender, receiver) = unbounded_channel();
     let exit_channel = sender.clone();
     let handle = std::thread::spawn(move || {
         let mut thread = BackgroundThread::new(receiver);

@@ -28,26 +28,26 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::mpsc::Sender;
 use druid::{AppDelegate, Command, DelegateCtx, Env, Handled, Target, WindowId};
 use druid::commands::{CLOSE_WINDOW, QUIT_APP};
 use time::macros::format_description;
 use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
+use tokio::sync::mpsc::UnboundedSender;
 use crate::command::{CONNECT, CONNECTION_ERROR, CONNECTION_SUCCESS, DISCONNECT, DISCOVER_START, NETWORK_COMMAND, NETWORK_ERROR, NETWORK_PEER, NETWORK_PEER_ERR, NEW, SELECT_NODE, SPAWN_WINDOW};
 use crate::state::{Event, Span, SpanData, State};
 use crate::thread::network_types::{Command as NetCommand, Level, Value};
 use crate::window::Destroy;
 
 pub struct Delegate {
-    channel: Sender<crate::thread::Command>,
+    channel: UnboundedSender<crate::thread::Command>,
     networked: bool,
     windows: HashMap<WindowId, Box<dyn Destroy>>,
     window_count: usize
 }
 
 impl Delegate {
-    pub fn new(channel: Sender<crate::thread::Command>) -> Delegate {
+    pub fn new(channel: UnboundedSender<crate::thread::Command>) -> Delegate {
         Delegate {
             channel,
             networked: false,
@@ -193,7 +193,7 @@ impl AppDelegate<State> for Delegate {
             ctx.submit_command(QUIT_APP);
             return Handled::Yes;
         } else if cmd.is(NEW) {
-            self.channel.send(crate::thread::Command::Disconnect).unwrap();
+            self.channel.send(crate::thread::Command::Disconnect).ok().unwrap();
             //Turn off network handling.
             self.networked = false;
             state.reset();
@@ -227,7 +227,7 @@ impl AppDelegate<State> for Delegate {
             }
             if cmd.is(DISCONNECT) {
                 state.status = "Disconnected from target application!".into();
-                self.channel.send(crate::thread::Command::Disconnect).unwrap();
+                self.channel.send(crate::thread::Command::Disconnect).ok().unwrap();
                 //Turn off network handling.
                 self.networked = false;
                 return Handled::Yes;
@@ -246,7 +246,7 @@ impl AppDelegate<State> for Delegate {
                 return Handled::Yes;
             }
             if cmd.is(DISCOVER_START) {
-                self.channel.send(crate::thread::Command::StartAutoDiscovery(ctx.get_external_handle())).unwrap();
+                self.channel.send(crate::thread::Command::StartAutoDiscovery(ctx.get_external_handle())).ok().unwrap();
                 return Handled::Yes;
             } else if cmd.is(CONNECT) {
                 state.status = "Connecting...".into();
@@ -255,7 +255,7 @@ impl AppDelegate<State> for Delegate {
                     ip,
                     sink: ctx.get_external_handle(),
                     max_sub_buffer: Some(state.preferences.max_sub_buffer)
-                }).unwrap();
+                }).ok().unwrap();
                 return Handled::Yes;
             } else if cmd.is(CONNECTION_SUCCESS) {
                 state.status = "Ready.".into();
