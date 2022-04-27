@@ -26,24 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
 use std::time::Duration;
-use bincode::ErrorKind;
 use tokio::sync::mpsc::Receiver;
 use druid::{ExtEventSink, Target};
 use tokio::sync::mpsc::Sender;
 use crate::command::{CONNECTION_ERROR, CONNECTION_SUCCESS, NETWORK_COMMAND, NETWORK_ERROR};
-use crate::constants::NET_READ_DURATION;
+use crate::constants::DEFAULT_SINGLE_COMMAND_BUFFER;
 use crate::thread::base::{BaseConnection, Run};
-use crate::thread::network_types::{Command, Hello, HELLO_PACKET, MatchResult};
+use crate::thread::network_types::{Hello, HELLO_PACKET, MatchResult};
 use super::network_types::Command as NetCommand;
 use async_trait::async_trait;
-use futures::TryStreamExt;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio_serde::formats::SymmetricalBincode;
-use tokio_serde::SymmetricallyFramed;
-use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
 
 async fn handle_hello(socket: &mut TcpStream) -> Result<(), String> {
     let mut block = [0; 40];
@@ -82,54 +76,18 @@ impl Message {
 
 struct Worker {
     channel: Sender<Message>,
-    ip: String
-    //stream: TcpStream
+    ip: String,
+    command_buffer: Vec<u8>
 }
 
 impl Worker {
     pub fn new(ip: String, channel: Sender<Message>) -> Worker {
-        Worker { ip, channel }
-    }
-
-    /*pub fn connect(ip: String) -> Result<TcpStream, String> {
-        let mut socket = TcpStream::connect(&ip).map_err(|e| e.to_string())?;
-        //The kernel of macOS is dysfunctional: it regularly throws err 35 with send_all if
-        // non-blocking!
-        handle_hello(&mut socket)?;
-        socket.set_read_timeout(Some(NET_READ_DURATION)).map_err(|e| e.to_string())?;
-        Ok(socket)
-    }*/
-
-    /*pub fn try_read_command(&mut self) -> Result<Option<NetCommand>, String> {
-        match bincode::deserialize_from(&mut self.stream) {
-            Ok(v) => Ok(Some(v)),
-            Err(e) => {
-                if let ErrorKind::Io(e) = &*e {
-                    if e.kind() == std::io::ErrorKind::WouldBlock
-                        || e.kind() == std::io::ErrorKind::TimedOut {
-                        return Ok(None)
-                    }
-                }
-                Err(e.to_string())
-            }
+        Worker {
+            ip,
+            channel,
+            command_buffer: vec![0; DEFAULT_SINGLE_COMMAND_BUFFER]
         }
     }
-
-    pub fn read_command(&mut self, base: &BaseWorker<Internal>) -> bool {
-        match self.try_read_command() {
-            Ok(v) => {
-                if let Some(v) = v {
-                    base.send(Ok(v));
-                    return false
-                }
-            },
-            Err(e) => {
-                base.send(Err(e));
-                return true
-            }
-        }
-        false
-    }*/
 
     async fn connect(&self) -> Result<TcpStream, String> {
         let mut stream = TcpStream::connect(&self.ip).await.map_err(|e| e.to_string())?;
@@ -137,27 +95,29 @@ impl Worker {
         Ok(stream)
     }
 
-    async fn handle_frame(&mut self, res: std::io::Result<Option<NetCommand>>) -> bool {
+    async fn handle_frame(&mut self, res: Result<NetCommand, String>) -> bool {
         match res {
             Ok(v) => {
-                match v {
-                    None => (),
-                    Some(v) => {
-                        self.channel.send(Message::NetworkCommand(v)).await.unwrap();
-                    }
-                }
+                self.channel.send(Message::NetworkCommand(v)).await.unwrap();
                 false
             }
             Err(e) => {
-                self.channel.send(Message::NetworkError(e.to_string())).await.unwrap();
+                self.channel.send(Message::NetworkError(e)).await.unwrap();
                 true
             }
         }
     }
-}
 
-//TODO: Rewrite to use tokio instead which is gonna solve a great deal of bugs whiich happens with
-// set_read_timeout and set_write_timeout.
+    async fn read_command(&mut self, buffer: &mut BufReader<TcpStream>) -> Result<NetCommand, String> {
+        let size = buffer.read_u32_le().await.map_err(|e| e.to_string())? as usize;
+        if size > self.command_buffer.len() {
+            self.command_buffer.resize(size, 0);
+        }
+        buffer.read_exact(&mut self.command_buffer[..size]).await.map_err(|e| e.to_string())?;
+        let cmd: NetCommand = bincode::deserialize(&self.command_buffer[..size]).map_err(|e| e.to_string())?;
+        Ok(cmd)
+    }
+}
 
 #[async_trait]
 impl Run for Worker {
@@ -170,14 +130,10 @@ impl Run for Worker {
             }
         };
         self.channel.send(Message::ConnectionSuccess).await.unwrap();
-        let frames = FramedRead::new(stream, LengthDelimitedCodec::new());
-        let mut deserializer = SymmetricallyFramed::new(frames, SymmetricalBincode::<NetCommand>::default());
+        let mut buffer = BufReader::new(stream);
         loop {
-            let res = deserializer.try_next().await;
-            //FIXME: "frame size too big", possible re-write using pure tokio and bincode with
-            // BufReader; requires however to record the size of each packet in bp3d-tracing
-            // (essentially altering the protocol again).
-            if self.handle_frame(res).await {
+            let cmd = self.read_command(&mut buffer).await;
+            if self.handle_frame(cmd).await {
                 break;
             }
         }
@@ -253,59 +209,13 @@ impl super::base::Connection for Internal {
     }
 
     fn new((ip, max_sub_buffer): Params) -> Option<Self> {
-        /*let socket = match Worker::connect(ip) {
-            Ok(v) => v,
-            Err(e) => {
-                sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
-                return None;
-            }
-        };
-        sink.submit_command(CONNECTION_SUCCESS, false, Target::Auto).unwrap();
-        let this = Internal {
-            buffer: super::command::Buffer::new(max_sub_buffer)
-        };
-        let worker = Worker::new(socket);
-        Some((this, worker))*/
         Some(Internal {
             ip,
             max_sub_buffer
         })
     }
-
-    /*fn step(&mut self, sink: &ExtEventSink, channel: &mut Receiver<Self::Message>) -> bool {
-        if !self.connected {
-            while let Ok(msg) = channel.try_recv() {
-                match msg {
-                    Message::ConnectionSuccess => {
-                        sink.submit_command(CONNECTION_SUCCESS, true, Target::Auto).unwrap();
-                        self.connected = true;
-                        break;
-                    },
-                    Message::ConnectionError(e) => {
-                        sink.submit_command(CONNECTION_ERROR, e, Target::Auto).unwrap();
-                        return false;
-                    }
-                    Message::NetworkError(_) => unreachable!(),
-                    Message::NetworkCommand(_) => unreachable!()
-                }
-            }
-        }
-        if let Err(e) = self.buffer.try_submit(channel, |v| v.into_result()) {
-            sink.submit_command(NETWORK_ERROR, e, Target::Auto).unwrap();
-            return false;
-        }
-        if let Some(batch) = self.buffer.fast_forward() {
-            sink.submit_command(NETWORK_COMMAND, batch, Target::Auto).unwrap();
-        }
-        if self.buffer.should_terminate() {
-            return false;
-        }
-        true
-    }*/
 }
 
 pub fn new(sink: ExtEventSink, params: Params) -> Option<BaseConnection> {
     BaseConnection::new::<Internal>(sink, params)
 }
-
-//super::base::hack_rust_garbage_private_rule!(Connection<Params, Internal>);

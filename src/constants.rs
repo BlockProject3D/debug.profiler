@@ -52,6 +52,9 @@ pub const NET_READ_DURATION: Duration = Duration::from_millis(500);
 #[cfg(debug_assertions)]
 pub const DEFAULT_MAX_SUB_BUFFER: usize = 512;
 
+/// Default size of the buffer to store bytes of a single command.
+pub const DEFAULT_SINGLE_COMMAND_BUFFER: usize = 256;
+
 /// Default size of fast forward command buffer (512 in debug and 8192 in release).
 ///
 /// This is set to 512 in debug because druid is atrociously slow in that configuration.
