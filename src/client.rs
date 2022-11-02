@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-//
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-//
+// 
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,21 +26,45 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::Arc;
-use druid::{Data, Lens};
-use druid::im::Vector;
-use crate::state::{Event, SpanLogEntry};
+use std::net::SocketAddr;
 
-//The state for an events window.
-#[derive(Clone, Data, Lens)]
-pub struct StateEvents {
-    pub selected_event: Arc<Event>,
-    pub events: Vector<Arc<Event>>
+use tokio::{net::TcpStream, task::JoinHandle, io::AsyncReadExt, sync::oneshot::{Sender, channel}};
+use std::io::Result;
+
+pub type ClientTask = JoinHandle<(usize, Result<()>)>;
+
+pub struct Client {
+    stop_signal: Sender<()>,
+    index: usize
 }
 
-//The state for a history window.
-#[derive(Clone, Data, Lens)]
-pub struct StateHistory {
-    pub selected_history: SpanLogEntry,
-    pub history: Vector<SpanLogEntry>
+impl Client {
+    pub fn new(mut stream: TcpStream, addr: SocketAddr, index: usize) -> (Client, ClientTask) {
+        let (stop_signal, mut receiver) = channel();
+        let task = tokio::spawn(async move {
+            let mut buffer: [u8; 512] = [0; 512];
+            loop {
+                tokio::select! {
+                    res = stream.read(&mut buffer) => {
+                        let len = res.unwrap();
+                        if len <= 0 {
+                            break;
+                        }
+                        println!("Read {} byte(s)", len);
+                    },
+                    _ = &mut receiver => break
+                }
+            }
+            (index, Ok(()))
+        });
+        (Client { stop_signal, index }, task)
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn stop(self) {
+        self.stop_signal.send(()).unwrap();
+    }
 }

@@ -26,32 +26,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::sync::mpsc::unbounded_channel;
-use druid::{AppLauncher, PlatformError};
-use view::theme;
-use crate::thread::BackgroundThread;
-use crate::window::Window;
+use server::Server;
+use tokio::io::AsyncReadExt;
 
-mod state;
-mod delegate;
-mod command;
-mod view;
-mod window;
-mod thread;
-mod constants;
+mod server;
+mod client;
+mod client_manager;
 
-fn main() -> Result<(), PlatformError> {
-    let (sender, receiver) = unbounded_channel();
-    let exit_channel = sender.clone();
-    let handle = std::thread::spawn(move || {
-        let mut thread = BackgroundThread::new(receiver);
-        thread.run();
-    });
-    let res = AppLauncher::with_window(window::MainWindow.build())
-        .delegate(delegate::Delegate::new(sender))
-        .configure_env(theme::overwrite_theme)
-        .launch(state::State::default());
-    let _ = exit_channel.send(thread::Command::Terminate);
-    handle.join().unwrap();
-    res
+async fn run() {
+    let server = Server::new("127.0.0.1:25565").await;
+    match server {
+        Ok(v) => {
+            let mut stdin = tokio::io::stdin();
+            let mut buffer: [u8; 256] = [0; 256];
+            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
+            if flag {
+                v.stop().await;
+            }
+        },
+        Err(e) => eprintln!("Failed to start server: {}", e)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    run().await
 }

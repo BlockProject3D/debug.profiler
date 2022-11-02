@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-//
+// 
 // All rights reserved.
-//
+// 
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-//
+// 
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-//
+// 
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,62 +26,65 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::ops::{Index, IndexMut};
-use druid::Data;
-use druid::im::Vector;
+use futures::{stream::{FuturesUnordered, Next}, StreamExt};
+use tokio::{task::JoinError, net::TcpStream};
+use std::{io::Result, net::SocketAddr, future::Future, pin::Pin, task::{Context, Poll}};
+use crate::client::{Client, ClientTask};
 
-// This module contains a hacky container to bypass one of the WORST and most stupid API design in
-// im-rs crate: HashMap index function only accepts static references!
+pub type JoinResult<T> = std::result::Result<T, JoinError>;
 
-#[derive(Data, Clone)]
-pub struct WindowMap<T>(Vector<Option<T>>);
+struct TaskList<'a, T: Future>(Next<'a, FuturesUnordered<T>>);
 
-impl<T: Clone> Default for WindowMap<T> {
-    fn default() -> Self {
-        Self(Vector::new())
-    }
-}
+impl<'a, T: Future> Future for TaskList<'a, T> {
+    type Output = T::Output;
 
-impl<T: Clone> Index<usize> for WindowMap<T> {
-    type Output = T;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        self.0[index].as_ref().unwrap()
-    }
-}
-
-impl<T: Clone> IndexMut<usize> for WindowMap<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        self.0[index].as_mut().unwrap()
-    }
-}
-
-impl<T: Clone> WindowMap<T> {
-    pub fn insert(&mut self, window: T) -> usize {
-        for (i, v) in self.0.iter_mut().enumerate() {
-            if v.is_none() {
-                *v = Some(window);
-                return i;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let pin = Pin::new(&mut self.0);
+        if let Poll::Ready(v) = pin.poll(cx) {
+            match v {
+                Some(v) => Poll::Ready(v),
+                None => Poll::Pending
             }
+        } else {
+            Poll::Pending
         }
-        self.0.push_back(Some(window));
-        self.0.len() - 1
+    }
+}
+
+pub struct ClientManager {
+    clients: Vec<Client>,
+    tasks: FuturesUnordered<ClientTask>,
+    cur_index: usize
+}
+
+impl ClientManager {
+    pub fn new() -> ClientManager {
+        ClientManager {
+            clients: Vec::new(),
+            tasks: FuturesUnordered::new(),
+            cur_index: 0
+        }
+    }
+
+    pub fn add(&mut self, stream: TcpStream, addr: SocketAddr) {
+        let (client, task) = Client::new(stream, addr, self.cur_index);
+        self.cur_index += 1;
+        self.clients.push(client);
+        self.tasks.push(task);
+    }
+
+    pub async fn get_client_stop(&mut self) -> JoinResult<(usize, Result<()>)> {
+        TaskList(self.tasks.next()).await
     }
 
     pub fn remove(&mut self, index: usize) {
-        if index > self.0.len() {
-            return;
+        self.clients.retain(|v| v.index() != index)
+    }
+
+    pub async fn stop(mut self) {
+        for v in self.clients {
+            v.stop();
         }
-        let mut flag = true;
-        for i in index..self.0.len() {
-            if self.0[i].is_some() {
-                flag = false;
-            }
-        }
-        if flag { //It is safe to remove the object from the vector.
-            self.0.remove(index);
-        } else { //Removing the object from the vector would cause dangling indices.
-            self.0[index] = None;
-        }
+        while let Some(_) = self.tasks.next().await {}
     }
 }
