@@ -28,8 +28,11 @@
 
 use std::net::SocketAddr;
 
-use tokio::{net::TcpStream, task::JoinHandle, io::AsyncReadExt, sync::oneshot::{Sender, channel, Receiver}};
+use tokio::{net::TcpStream, task::JoinHandle, io::{AsyncReadExt, BufReader}, sync::oneshot::{Sender, channel, Receiver}};
 use std::io::Result;
+
+use crate::session::Session;
+use crate::network_types as nt;
 
 pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
 
@@ -43,8 +46,8 @@ impl Client {
         let (stop_signal, receiver) = channel();
         println!("Client at address '{}' has been assigned index {}", addr, index);
         let task = tokio::spawn(async move {
-            let mut task = ClientTask::new(receiver, stream);
-            (index, task.run().await)
+            let mut task = ClientTask::new(stream);
+            (index, task.run(receiver).await)
         });
         (Client { stop_signal, index }, task)
     }
@@ -60,27 +63,54 @@ impl Client {
 
 
 struct ClientTask {
-    stop_signal: Receiver<()>,
-    stream: TcpStream
+    stream: BufReader<TcpStream>,
+    session: Option<Session>
 }
 
 impl ClientTask {
-    pub fn new(stop_signal: Receiver<()>, stream: TcpStream) -> ClientTask {
-        ClientTask { stop_signal, stream }
+    pub fn new(stream: TcpStream) -> ClientTask {
+        ClientTask {
+            stream: BufReader::new(stream),
+            session: None
+        }
     }
 
-    pub async fn run(&mut self) -> Result<()> {
-        let mut buffer: [u8; 512] = [0; 512];
+    pub fn kick(msg: &str) -> Result<()> {
+        Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("kicked, reason: {}", msg)))
+    }
+
+    pub async fn handle_read(&mut self) -> Result<()> {
+        match &mut self.session {
+            Some(v) => {
+                let len = self.stream.read_u32_le().await?;
+                println!("Reading {} byte(s)", len);
+                Ok(())
+            },
+            None => {
+                let mut buffer: [u8; 40] = [0; 40]; //Hello is a 40 bytes packet.
+                self.stream.read_exact(&mut buffer).await?;
+                let packet = nt::Hello::from_bytes(buffer);
+                match packet.matches(&nt::HELLO_PACKET) {
+                    nt::MatchResult::SignatureMismatch => {
+                        Self::kick("wrong signature")
+                    },
+                    nt::MatchResult::VersionMismatch => {
+                        Self::kick("wrong version")
+                    },
+                    nt::MatchResult::Ok => {
+                        self.session = Some(Session::new());
+                        Ok(())
+                    },
+                }
+            }
+        }
+    }
+
+    pub async fn run(&mut self, mut stop_signal: Receiver<()>) -> Result<()> {
         loop {
             tokio::select! {
-                res = self.stream.read(&mut buffer) => {
-                    let len = res?;
-                    if len <= 0 {
-                        break;
-                    }
-                    println!("Read {} byte(s)", len);
-                },
-                _ = &mut self.stop_signal => break
+                res = self.handle_read() => res?,
+                _ = &mut stop_signal => break
             }
         }
         Ok(())
