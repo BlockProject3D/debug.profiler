@@ -26,30 +26,13 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use server::Server;
-use tokio::io::AsyncReadExt;
 
-mod network_types;
-mod server;
-mod client;
-mod client_manager;
+mod value;
+mod metadata;
+mod command;
+mod version;
 
-async fn run() {
-    let server = Server::new("127.0.0.1:25565").await;
-    match server {
-        Ok(v) => {
-            let mut stdin = tokio::io::stdin();
-            let mut buffer: [u8; 256] = [0; 256];
-            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
-            if flag {
-                v.stop().await;
-            }
-        },
-        Err(e) => eprintln!("Failed to start server: {}", e)
-    }
-}
-
-#[tokio::main]
-async fn main() {
-    run().await
-}
+pub use value::*;
+pub use metadata::*;
+pub use command::*;
+pub use version::*;

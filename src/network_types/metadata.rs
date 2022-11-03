@@ -26,30 +26,48 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use server::Server;
-use tokio::io::AsyncReadExt;
+use serde::{Serialize, Deserialize};
 
-mod network_types;
-mod server;
-mod client;
-mod client_manager;
+#[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
+pub enum Level {
+    Trace,
+    Debug,
+    Info,
+    Warning,
+    Error
+}
 
-async fn run() {
-    let server = Server::new("127.0.0.1:25565").await;
-    match server {
-        Ok(v) => {
-            let mut stdin = tokio::io::stdin();
-            let mut buffer: [u8; 256] = [0; 256];
-            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
-            if flag {
-                v.stop().await;
-            }
-        },
-        Err(e) => eprintln!("Failed to start server: {}", e)
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct Metadata {
+    pub name: String, //The name of the span/event
+    pub target: String, //The target of the span/event (usually this contains module path)
+    pub level: Level, //The log level of the span/event
+    pub module_path: Option<String>, //The module path (including crate name)
+    pub file: Option<String>, //The file path
+    pub line: Option<u32> //The line number in the file
+}
+
+impl Metadata {
+    pub fn get_target_module(&self) -> (&str, Option<&str>) {
+        let base_string = self.module_path.as_deref().unwrap_or_else(|| &*self.target);
+        let target = base_string
+            .find("::")
+            .map(|v| &base_string[..v])
+            .unwrap_or(&base_string);
+        let module = base_string.find("::").map(|v| &base_string[(v + 2)..]);
+        (target, module)
     }
 }
 
-#[tokio::main]
-async fn main() {
-    run().await
+impl Default for Metadata {
+    fn default() -> Self {
+        Metadata {
+            name: "root".into(),
+            target: "".into(),
+            level: Level::Info,
+            file: None,
+            module_path: None,
+            line: None
+        }
+    }
 }

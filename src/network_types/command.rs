@@ -26,30 +26,66 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use server::Server;
-use tokio::io::AsyncReadExt;
+use serde::{Serialize, Deserialize};
+use super::Metadata;
+use super::Value;
 
-mod network_types;
-mod server;
-mod client;
-mod client_manager;
-
-async fn run() {
-    let server = Server::new("127.0.0.1:25565").await;
-    match server {
-        Ok(v) => {
-            let mut stdin = tokio::io::stdin();
-            let mut buffer: [u8; 256] = [0; 256];
-            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
-            if flag {
-                v.stop().await;
-            }
-        },
-        Err(e) => eprintln!("Failed to start server: {}", e)
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpanId {
+    pub id: u32,
+    pub instance: u32
 }
 
-#[tokio::main]
-async fn main() {
-    run().await
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub enum Command {
+    SpanAlloc {
+        id: SpanId,
+        metadata: Metadata
+    },
+
+    SpanInit {
+        span: SpanId,
+        parent: Option<SpanId>, //None must mean that span is at root
+        message: Option<String>,
+        value_set: Vec<(String, Value)>
+    },
+
+    SpanFollows {
+        span: SpanId,
+        follows: SpanId
+    },
+
+    SpanValues {
+        span: SpanId,
+        message: Option<String>,
+        value_set: Vec<(String, Value)>
+    },
+
+    Event {
+        span: Option<SpanId>,
+        metadata: Metadata,
+        time: i64,
+        message: Option<String>,
+        value_set: Vec<(String, Value)>
+    },
+
+    SpanEnter(SpanId),
+
+    SpanExit {
+        span: SpanId,
+        duration: f64
+    },
+
+    SpanFree(SpanId),
+
+    Terminate
+}
+
+impl Command {
+    pub fn is_terminate(&self) -> bool { // The target application has requested termination.
+        match self {
+            Command::Terminate => true,
+            _ => false
+        }
+    }
 }

@@ -26,30 +26,32 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use server::Server;
-use tokio::io::AsyncReadExt;
+use serde::{Serialize, Deserialize};
+use std::fmt::{Display, Formatter};
 
-mod network_types;
-mod server;
-mod client;
-mod client_manager;
-
-async fn run() {
-    let server = Server::new("127.0.0.1:25565").await;
-    match server {
-        Ok(v) => {
-            let mut stdin = tokio::io::stdin();
-            let mut buffer: [u8; 256] = [0; 256];
-            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
-            if flag {
-                v.stop().await;
-            }
-        },
-        Err(e) => eprintln!("Failed to start server: {}", e)
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Value {
+    Float(f64),
+    Signed(i64),
+    Unsigned(u64),
+    String(String),
+    Bool(bool)
 }
 
-#[tokio::main]
-async fn main() {
-    run().await
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Float(v) => write!(f, "{}", v),
+            Value::Signed(v) => write!(f, "{}", v),
+            Value::Unsigned(v) => write!(f, "{}", v),
+            Value::String(v) => write!(f, "\"{}\"", v),
+            Value::Bool(v) => {
+                if *v {
+                    f.write_str("On")
+                } else {
+                    f.write_str("Off")
+                }
+            }
+        }
+    }
 }
