@@ -29,7 +29,7 @@
 use futures::{stream::{FuturesUnordered, Next}, StreamExt};
 use tokio::{task::JoinError, net::TcpStream};
 use std::{io::Result, net::SocketAddr, future::Future, pin::Pin, task::{Context, Poll}};
-use crate::client::{Client, ClientTask};
+use crate::client::{Client, ClientTaskResult};
 
 pub type JoinResult<T> = std::result::Result<T, JoinError>;
 
@@ -53,7 +53,7 @@ impl<'a, T: Future> Future for TaskList<'a, T> {
 
 pub struct ClientManager {
     clients: Vec<Client>,
-    tasks: FuturesUnordered<ClientTask>,
+    tasks: FuturesUnordered<ClientTaskResult>,
     cur_index: usize
 }
 

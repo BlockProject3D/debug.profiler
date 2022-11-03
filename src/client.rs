@@ -28,10 +28,10 @@
 
 use std::net::SocketAddr;
 
-use tokio::{net::TcpStream, task::JoinHandle, io::AsyncReadExt, sync::oneshot::{Sender, channel}};
+use tokio::{net::TcpStream, task::JoinHandle, io::AsyncReadExt, sync::oneshot::{Sender, channel, Receiver}};
 use std::io::Result;
 
-pub type ClientTask = JoinHandle<(usize, Result<()>)>;
+pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
 
 pub struct Client {
     stop_signal: Sender<()>,
@@ -39,23 +39,12 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(mut stream: TcpStream, addr: SocketAddr, index: usize) -> (Client, ClientTask) {
-        let (stop_signal, mut receiver) = channel();
+    pub fn new(stream: TcpStream, addr: SocketAddr, index: usize) -> (Client, ClientTaskResult) {
+        let (stop_signal, receiver) = channel();
+        println!("Client at address '{}' has been assigned index {}", addr, index);
         let task = tokio::spawn(async move {
-            let mut buffer: [u8; 512] = [0; 512];
-            loop {
-                tokio::select! {
-                    res = stream.read(&mut buffer) => {
-                        let len = res.unwrap();
-                        if len <= 0 {
-                            break;
-                        }
-                        println!("Read {} byte(s)", len);
-                    },
-                    _ = &mut receiver => break
-                }
-            }
-            (index, Ok(()))
+            let mut task = ClientTask::new(receiver, stream);
+            (index, task.run().await)
         });
         (Client { stop_signal, index }, task)
     }
@@ -66,5 +55,34 @@ impl Client {
 
     pub fn stop(self) {
         self.stop_signal.send(()).unwrap();
+    }
+}
+
+
+struct ClientTask {
+    stop_signal: Receiver<()>,
+    stream: TcpStream
+}
+
+impl ClientTask {
+    pub fn new(stop_signal: Receiver<()>, stream: TcpStream) -> ClientTask {
+        ClientTask { stop_signal, stream }
+    }
+
+    pub async fn run(&mut self) -> Result<()> {
+        let mut buffer: [u8; 512] = [0; 512];
+        loop {
+            tokio::select! {
+                res = self.stream.read(&mut buffer) => {
+                    let len = res?;
+                    if len <= 0 {
+                        break;
+                    }
+                    println!("Read {} byte(s)", len);
+                },
+                _ = &mut self.stop_signal => break
+            }
+        }
+        Ok(())
     }
 }
