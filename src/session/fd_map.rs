@@ -26,51 +26,43 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod paths;
-mod fd_map;
-
-use std::collections::HashMap;
-use std::path::{PathBuf, Path};
+use std::path::PathBuf;
 use std::io::Result;
 
-use crate::network_types as nt;
+use tokio::{io::{BufReader, AsyncWriteExt}, fs::{File, OpenOptions}};
 
-use self::fd_map::FdMap;
-use self::paths::Paths;
+use super::paths::{Directory, Paths};
 
-struct SpanData {
-    message: Option<String>,
-    value_set: Vec<(String, nt::Value)>,
-    duration: f64
+struct FdEntry {
+    file: BufReader<File>,
+    dir: Directory,
+    span: u32
 }
 
-pub struct Session {
-    paths: Paths,
-    fd_map: FdMap,
-    spans: HashMap<nt::SpanId, SpanData>
+pub struct FdMap {
+    fd_map: Vec<FdEntry>,
+    max_fd_count: usize
 }
 
-impl Session {
-    pub async fn new(client_index: usize, max_fd_count: usize) -> Result<Session> {
-        let paths = Paths::new(client_index).await?;
-        Ok(Session {
-            paths,
-            fd_map: FdMap::new(max_fd_count),
-            spans: HashMap::new()
-        })
+impl FdMap {
+    pub fn new(max_fd_count: usize) -> FdMap {
+        FdMap {
+            fd_map: Vec::with_capacity(max_fd_count),
+            max_fd_count
+        }
     }
 
-    pub async fn handle_command(&mut self, cmd: nt::Command) {
-        match cmd {
-            nt::Command::SpanAlloc { id, metadata } => todo!(),
-            nt::Command::SpanInit { span, parent, message, value_set } => todo!(),
-            nt::Command::SpanFollows { span, follows } => todo!(),
-            nt::Command::SpanValues { span, message, value_set } => todo!(),
-            nt::Command::Event { span, metadata, time, message, value_set } => todo!(),
-            nt::Command::SpanEnter(id) => todo!(),
-            nt::Command::SpanExit { span, duration } => todo!(),
-            nt::Command::SpanFree(id) => todo!(),
-            nt::Command::Terminate => todo!(),
+    pub async fn open_file(&mut self, paths: &Paths, span: u32, dir: Directory) -> Result<&mut BufReader<File>> {
+        if let Some(entry) = self.fd_map.iter().position(|v| v.span == span && v.dir == dir) {
+            return Ok(&mut self.fd_map[entry].file);
         }
+        if self.fd_map.len() >= self.max_fd_count {
+            self.fd_map[0].file.flush().await?;
+            self.fd_map.remove(0);
+        }
+        let path = paths.get(dir).join(format!("{}.csv", span));
+        let file = BufReader::new(OpenOptions::new().append(true).create(true).open(path).await?);
+        self.fd_map.push(FdEntry { dir, span, file });
+        Ok(self.fd_map.last_mut().map(|v| &mut v.file).unwrap())
     }
 }

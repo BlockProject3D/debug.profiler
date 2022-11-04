@@ -26,51 +26,53 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod paths;
-mod fd_map;
-
-use std::collections::HashMap;
 use std::path::{PathBuf, Path};
 use std::io::Result;
 
-use crate::network_types as nt;
-
-use self::fd_map::FdMap;
-use self::paths::Paths;
-
-struct SpanData {
-    message: Option<String>,
-    value_set: Vec<(String, nt::Value)>,
-    duration: f64
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Directory {
+    Runs,
+    Events,
+    Metadata
 }
 
-pub struct Session {
-    paths: Paths,
-    fd_map: FdMap,
-    spans: HashMap<nt::SpanId, SpanData>
+pub struct Paths {
+    dir: PathBuf,
+    runs_dir: PathBuf,
+    events_dir: PathBuf,
+    metadata_dir: PathBuf
 }
 
-impl Session {
-    pub async fn new(client_index: usize, max_fd_count: usize) -> Result<Session> {
-        let paths = Paths::new(client_index).await?;
-        Ok(Session {
-            paths,
-            fd_map: FdMap::new(max_fd_count),
-            spans: HashMap::new()
+async fn get_data_dir(client_index: usize) -> Result<PathBuf> {
+    let data_dir = Path::new("./data");
+    tokio::fs::create_dir(data_dir).await?;
+    let client_dir = data_dir.join(format!("{}", client_index));
+    tokio::fs::create_dir(&client_dir).await?;
+    Ok(client_dir)
+}
+
+impl Paths {
+    pub async fn new(client_index: usize) -> Result<Paths> {
+        let dir = get_data_dir(client_index).await?;
+        let runs_dir = dir.join("runs");
+        let events_dir = dir.join("events");
+        let metadata_dir = dir.join("events");
+        tokio::fs::create_dir(&runs_dir).await?;
+        tokio::fs::create_dir(&events_dir).await?;
+        tokio::fs::create_dir(&metadata_dir).await?;
+        Ok(Paths {
+            dir,
+            events_dir,
+            runs_dir,
+            metadata_dir
         })
     }
 
-    pub async fn handle_command(&mut self, cmd: nt::Command) {
-        match cmd {
-            nt::Command::SpanAlloc { id, metadata } => todo!(),
-            nt::Command::SpanInit { span, parent, message, value_set } => todo!(),
-            nt::Command::SpanFollows { span, follows } => todo!(),
-            nt::Command::SpanValues { span, message, value_set } => todo!(),
-            nt::Command::Event { span, metadata, time, message, value_set } => todo!(),
-            nt::Command::SpanEnter(id) => todo!(),
-            nt::Command::SpanExit { span, duration } => todo!(),
-            nt::Command::SpanFree(id) => todo!(),
-            nt::Command::Terminate => todo!(),
+    pub fn get(&self, dir: Directory) -> &Path {
+        match dir {
+            Directory::Runs => &self.runs_dir,
+            Directory::Events => &self.events_dir,
+            Directory::Metadata => &self.metadata_dir,
         }
     }
 }

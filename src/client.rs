@@ -46,7 +46,7 @@ impl Client {
         let (stop_signal, receiver) = channel();
         println!("Client at address '{}' has been assigned index {}", addr, index);
         let task = tokio::spawn(async move {
-            let mut task = ClientTask::new(stream);
+            let mut task = ClientTask::new(stream, index);
             (index, task.run(receiver).await)
         });
         (Client { stop_signal, index }, task)
@@ -64,14 +64,16 @@ impl Client {
 
 struct ClientTask {
     stream: BufReader<TcpStream>,
-    session: Option<Session>
+    session: Option<Session>,
+    client_index: usize
 }
 
 impl ClientTask {
-    pub fn new(stream: TcpStream) -> ClientTask {
+    pub fn new(stream: TcpStream, client_index: usize) -> ClientTask {
         ClientTask {
             stream: BufReader::new(stream),
-            session: None
+            session: None,
+            client_index
         }
     }
 
@@ -98,7 +100,8 @@ impl ClientTask {
                         Self::kick("wrong version")
                     },
                     nt::MatchResult::Ok => {
-                        self.session = Some(Session::new());
+                        let session = Session::new(self.client_index, 2).await?;
+                        self.session = Some(session);
                         Ok(())
                     },
                 }
