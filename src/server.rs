@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,14 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use tokio::{net::TcpListener, sync::oneshot::{Sender, channel, Receiver}, task::JoinHandle};
 use std::io::Result;
+use tokio::{
+    net::TcpListener,
+    sync::oneshot::{channel, Receiver, Sender},
+    task::JoinHandle,
+};
 
 use crate::client_manager::{ClientManager, JoinResult};
 
 pub struct Server {
     stop_signal: Sender<()>,
-    task: JoinHandle<Result<()>>
+    task: JoinHandle<Result<()>>,
 }
 
 impl Server {
@@ -46,10 +50,7 @@ impl Server {
             task.stop().await;
             Ok(())
         });
-        Ok(Server {
-            stop_signal,
-            task
-        })
+        Ok(Server { stop_signal, task })
     }
 
     pub async fn stop(self) {
@@ -63,7 +64,7 @@ impl Server {
 struct ServerTask {
     manager: ClientManager,
     socket: TcpListener,
-    stop_signal: Receiver<()>
+    stop_signal: Receiver<()>,
 }
 
 impl ServerTask {
@@ -71,7 +72,7 @@ impl ServerTask {
         ServerTask {
             manager: ClientManager::new(),
             socket,
-            stop_signal
+            stop_signal,
         }
     }
 
@@ -81,9 +82,9 @@ impl ServerTask {
                 self.manager.remove(index);
                 match res {
                     Ok(_) => println!("Client with index {} has disconnected", index),
-                    Err(e) => eprintln!("Client with index {} has errored: {}", index, e)
+                    Err(e) => eprintln!("Client with index {} has errored: {}", index, e),
                 }
-            },
+            }
             Err(e) => {
                 eprintln!("A client has panicked: {}", e);
             }

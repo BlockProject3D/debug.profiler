@@ -39,7 +39,7 @@ use tokio::io::AsyncWriteExt;
 use crate::network_types as nt;
 
 use self::fd_map::FdMap;
-use self::paths::{Paths, Directory};
+use self::paths::{Directory, Paths};
 
 struct SpanData {
     message: Option<String>,
@@ -67,7 +67,10 @@ impl Session {
     pub async fn handle_command(&mut self, cmd: nt::Command) -> Result<()> {
         match cmd {
             nt::Command::SpanAlloc { id, metadata } => {
-                let out = self.fd_map.open_file(&self.paths, id.id, Directory::Metadata).await?;
+                let out = self
+                    .fd_map
+                    .open_file(&self.paths, id.id, Directory::Metadata)
+                    .await?;
                 let opt_file = format!("FILE={}\n", metadata.file.unwrap_or_default());
                 let opt_name = format!("NAME={}\n", metadata.name);
                 let opt_level = format!("LEVEL={}\n", metadata.level);
@@ -76,7 +79,8 @@ impl Session {
                     None => "LINE=\n".into(),
                 };
                 let opt_target = format!("TARGET={}\n", metadata.target);
-                let opt_mpath = format!("MODULE_PATH={}\n", metadata.module_path.unwrap_or_default());
+                let opt_mpath =
+                    format!("MODULE_PATH={}\n", metadata.module_path.unwrap_or_default());
 
                 out.write_all(opt_file.as_bytes()).await?;
                 out.write_all(opt_name.as_bytes()).await?;
@@ -86,8 +90,13 @@ impl Session {
                 out.write_all(opt_mpath.as_bytes()).await?;
                 //TODO: Update span tree
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
-            nt::Command::SpanInit { span, parent, message, value_set } => {
+            }
+            nt::Command::SpanInit {
+                span,
+                parent,
+                message,
+                value_set,
+            } => {
                 self.spans.insert(
                     span,
                     SpanData {
@@ -98,11 +107,15 @@ impl Session {
                 );
                 //TODO: Update span tree
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             //TODO: Update span tree
             //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanFollows { span, follows } => todo!(),
-            nt::Command::SpanValues { span, message, value_set } => {
+            nt::Command::SpanValues {
+                span,
+                message,
+                value_set,
+            } => {
                 if let Some(span) = self.spans.get_mut(&span) {
                     if message.is_some() {
                         span.message = message;
@@ -112,10 +125,16 @@ impl Session {
                     }
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             //TODO: Synchronize span data and tree with GUI sessions
             //TODO: Write events file
-            nt::Command::Event { span, metadata, time, message, value_set } => todo!(),
+            nt::Command::Event {
+                span,
+                metadata,
+                time,
+                message,
+                value_set,
+            } => todo!(),
             //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanEnter(id) => todo!(),
             nt::Command::SpanExit { span, duration } => {
@@ -124,7 +143,7 @@ impl Session {
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
                 //TODO: Write runs file
-            },
+            }
             //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanFree(id) => todo!(),
             //TODO: Flush all opened file buffers

@@ -29,11 +29,11 @@
 use server::Server;
 use tokio::io::AsyncReadExt;
 
-mod session;
-mod network_types;
-mod server;
 mod client;
 mod client_manager;
+mod network_types;
+mod server;
+mod session;
 
 async fn run() {
     let server = Server::new("127.0.0.1:25565").await;
@@ -41,12 +41,16 @@ async fn run() {
         Ok(v) => {
             let mut stdin = tokio::io::stdin();
             let mut buffer: [u8; 256] = [0; 256];
-            let flag = stdin.read(&mut buffer).await.map(|v| v == 0).unwrap_or(true);
+            let flag = stdin
+                .read(&mut buffer)
+                .await
+                .map(|v| v == 0)
+                .unwrap_or(true);
             if flag {
                 v.stop().await;
             }
-        },
-        Err(e) => eprintln!("Failed to start server: {}", e)
+        }
+        Err(e) => eprintln!("Failed to start server: {}", e),
     }
 }
 

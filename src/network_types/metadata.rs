@@ -28,7 +28,7 @@
 
 use std::fmt::Display;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
 pub enum Level {
@@ -36,7 +36,7 @@ pub enum Level {
     Debug,
     Info,
     Warning,
-    Error
+    Error,
 }
 
 impl Display for Level {
@@ -53,12 +53,12 @@ impl Display for Level {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Metadata {
-    pub name: String, //The name of the span/event
+    pub name: String,                //The name of the span/event
     pub target: String, //The target of the span/event (usually this contains module path)
-    pub level: Level, //The log level of the span/event
+    pub level: Level,   //The log level of the span/event
     pub module_path: Option<String>, //The module path (including crate name)
     pub file: Option<String>, //The file path
-    pub line: Option<u32> //The line number in the file
+    pub line: Option<u32>, //The line number in the file
 }
 
 impl Metadata {
@@ -81,7 +81,7 @@ impl Default for Metadata {
             level: Level::Info,
             file: None,
             module_path: None,
-            line: None
+            line: None,
         }
     }
 }

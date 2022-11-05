@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -28,23 +28,31 @@
 
 use std::net::SocketAddr;
 
-use tokio::{net::TcpStream, task::JoinHandle, io::{AsyncReadExt, BufReader}, sync::oneshot::{Sender, channel, Receiver}};
 use std::io::Result;
+use tokio::{
+    io::{AsyncReadExt, BufReader},
+    net::TcpStream,
+    sync::oneshot::{channel, Receiver, Sender},
+    task::JoinHandle,
+};
 
-use crate::session::Session;
 use crate::network_types as nt;
+use crate::session::Session;
 
 pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
 
 pub struct Client {
     stop_signal: Sender<()>,
-    index: usize
+    index: usize,
 }
 
 impl Client {
     pub fn new(stream: TcpStream, addr: SocketAddr, index: usize) -> (Client, ClientTaskResult) {
         let (stop_signal, receiver) = channel();
-        println!("Client at address '{}' has been assigned index {}", addr, index);
+        println!(
+            "Client at address '{}' has been assigned index {}",
+            addr, index
+        );
         let task = tokio::spawn(async move {
             let mut task = ClientTask::new(stream, index);
             (index, task.run(receiver).await)
@@ -61,11 +69,10 @@ impl Client {
     }
 }
 
-
 struct ClientTask {
     stream: BufReader<TcpStream>,
     session: Option<Session>,
-    client_index: usize
+    client_index: usize,
 }
 
 impl ClientTask {
@@ -73,12 +80,15 @@ impl ClientTask {
         ClientTask {
             stream: BufReader::new(stream),
             session: None,
-            client_index
+            client_index,
         }
     }
 
     pub fn kick(msg: &str) -> Result<()> {
-        Err(std::io::Error::new(std::io::ErrorKind::InvalidData, format!("kicked, reason: {}", msg)))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("kicked, reason: {}", msg),
+        ))
     }
 
     pub async fn handle_read(&mut self) -> Result<()> {
@@ -87,23 +97,19 @@ impl ClientTask {
                 let len = self.stream.read_u32_le().await?;
                 println!("Reading {} byte(s)", len);
                 Ok(())
-            },
+            }
             None => {
                 let mut buffer: [u8; 40] = [0; 40]; //Hello is a 40 bytes packet.
                 self.stream.read_exact(&mut buffer).await?;
                 let packet = nt::Hello::from_bytes(buffer);
                 match packet.matches(&nt::HELLO_PACKET) {
-                    nt::MatchResult::SignatureMismatch => {
-                        Self::kick("wrong signature")
-                    },
-                    nt::MatchResult::VersionMismatch => {
-                        Self::kick("wrong version")
-                    },
+                    nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
+                    nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
                     nt::MatchResult::Ok => {
                         let session = Session::new(self.client_index, 2).await?;
                         self.session = Some(session);
                         Ok(())
-                    },
+                    }
                 }
             }
         }

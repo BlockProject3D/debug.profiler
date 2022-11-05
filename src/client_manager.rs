@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -26,10 +26,19 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use futures::{stream::{FuturesUnordered, Next}, StreamExt};
-use tokio::{task::JoinError, net::TcpStream};
-use std::{io::Result, net::SocketAddr, future::Future, pin::Pin, task::{Context, Poll}};
 use crate::client::{Client, ClientTaskResult};
+use futures::{
+    stream::{FuturesUnordered, Next},
+    StreamExt,
+};
+use std::{
+    future::Future,
+    io::Result,
+    net::SocketAddr,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tokio::{net::TcpStream, task::JoinError};
 
 pub type JoinResult<T> = std::result::Result<T, JoinError>;
 
@@ -43,7 +52,7 @@ impl<'a, T: Future> Future for TaskList<'a, T> {
         if let Poll::Ready(v) = pin.poll(cx) {
             match v {
                 Some(v) => Poll::Ready(v),
-                None => Poll::Pending
+                None => Poll::Pending,
             }
         } else {
             Poll::Pending
@@ -54,7 +63,7 @@ impl<'a, T: Future> Future for TaskList<'a, T> {
 pub struct ClientManager {
     clients: Vec<Client>,
     tasks: FuturesUnordered<ClientTaskResult>,
-    cur_index: usize
+    cur_index: usize,
 }
 
 impl ClientManager {
@@ -62,7 +71,7 @@ impl ClientManager {
         ClientManager {
             clients: Vec::new(),
             tasks: FuturesUnordered::new(),
-            cur_index: 0
+            cur_index: 0,
         }
     }
 

@@ -26,39 +26,39 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::{Serialize, Deserialize};
 use super::Metadata;
 use super::Value;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct SpanId {
     pub id: u32,
-    pub instance: u32
+    pub instance: u32,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
     SpanAlloc {
         id: SpanId,
-        metadata: Metadata
+        metadata: Metadata,
     },
 
     SpanInit {
         span: SpanId,
         parent: Option<SpanId>, //None must mean that span is at root
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     SpanFollows {
         span: SpanId,
-        follows: SpanId
+        follows: SpanId,
     },
 
     SpanValues {
         span: SpanId,
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     Event {
@@ -66,26 +66,27 @@ pub enum Command {
         metadata: Metadata,
         time: i64,
         message: Option<String>,
-        value_set: Vec<(String, Value)>
+        value_set: Vec<(String, Value)>,
     },
 
     SpanEnter(SpanId),
 
     SpanExit {
         span: SpanId,
-        duration: f64
+        duration: f64,
     },
 
     SpanFree(SpanId),
 
-    Terminate
+    Terminate,
 }
 
 impl Command {
-    pub fn is_terminate(&self) -> bool { // The target application has requested termination.
+    pub fn is_terminate(&self) -> bool {
+        // The target application has requested termination.
         match self {
             Command::Terminate => true,
-            _ => false
+            _ => false,
         }
     }
 }

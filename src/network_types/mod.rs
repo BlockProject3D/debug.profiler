@@ -26,13 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
-mod value;
-mod metadata;
 mod command;
+mod metadata;
+mod value;
 mod version;
 
-pub use value::*;
-pub use metadata::*;
 pub use command::*;
+pub use metadata::*;
+pub use value::*;
 pub use version::*;
