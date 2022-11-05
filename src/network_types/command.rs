@@ -30,7 +30,7 @@ use serde::{Serialize, Deserialize};
 use super::Metadata;
 use super::Value;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct SpanId {
     pub id: u32,
     pub instance: u32
