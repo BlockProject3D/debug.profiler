@@ -26,6 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::fmt::Display;
+
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Clone, Copy, Eq, Serialize, Deserialize)]
@@ -35,6 +37,18 @@ pub enum Level {
     Info,
     Warning,
     Error
+}
+
+impl Display for Level {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Level::Trace => f.write_str("trace"),
+            Level::Debug => f.write_str("debug"),
+            Level::Info => f.write_str("info"),
+            Level::Warning => f.write_str("warning"),
+            Level::Error => f.write_str("error"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
