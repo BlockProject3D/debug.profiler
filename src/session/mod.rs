@@ -28,38 +28,48 @@
 
 mod fd_map;
 mod paths;
+mod utils;
 
 use std::collections::HashMap;
 use std::io::Result;
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
 
+use time::OffsetDateTime;
+use time::macros::format_description;
+use time_tz::OffsetDateTimeExt;
 use tokio::io::AsyncWriteExt;
 
 use crate::network_types as nt;
 
 use self::fd_map::FdMap;
 use self::paths::{Directory, Paths};
+use self::utils::{ValueSet, csv_format};
 
 struct SpanData {
     message: Option<String>,
-    value_set: Vec<(String, nt::Value)>,
+    value_set: ValueSet,
     duration: f64,
+}
+
+pub struct Config {
+    pub max_fd_count: usize,
+    pub inheritance: bool
 }
 
 pub struct Session {
     paths: Paths,
     fd_map: FdMap,
     spans: HashMap<nt::SpanId, SpanData>,
+    config: Config
 }
 
 impl Session {
-    pub async fn new(client_index: usize, max_fd_count: usize) -> Result<Session> {
+    pub async fn new(client_index: usize, config: Config) -> Result<Session> {
         let paths = Paths::new(client_index).await?;
         Ok(Session {
             paths,
-            fd_map: FdMap::new(max_fd_count),
+            fd_map: FdMap::new(config.max_fd_count),
             spans: HashMap::new(),
+            config
         })
     }
 
@@ -101,7 +111,7 @@ impl Session {
                     span,
                     SpanData {
                         message,
-                        value_set,
+                        value_set: value_set.into(),
                         duration: 0.0,
                     },
                 );
@@ -134,17 +144,36 @@ impl Session {
                 time,
                 message,
                 value_set,
-            } => todo!(),
+            } => {
+                let date = OffsetDateTime::from_unix_timestamp(time).unwrap_or(OffsetDateTime::now_utc())
+                    .to_timezone(time_tz::system::get_timezone().unwrap_or(time_tz::timezones::db::us::CENTRAL));
+                let date_format = format_description!("[weekday repr:short] [month repr:short] [day] [hour repr:12]:[minute]:[second] [period case:upper]");
+                let date_str = date.format(date_format).unwrap_or("<error>".into());
+                let (target, module) = metadata.get_target_module();
+                let msg = format!("({}) <{}> {}: {}", date_str, target, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
+                let span = span.unwrap_or(nt::SpanId { id: 0, instance: 0 });
+                let mut value_set = ValueSet::from(value_set);
+                if self.config.inheritance {
+                    //TODO: Handle inheritance
+                }
+                let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
+                out.write_all(csv_format([&*msg, &value_set.to_string()]).as_bytes()).await?;
+            },
             //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanEnter(id) => todo!(),
             nt::Command::SpanExit { span, duration } => {
-                if let Some(span) = self.spans.get_mut(&span) {
-                    span.duration = duration;
+                if let Some(data) = self.spans.get_mut(&span) {
+                    data.duration = duration;
+                    if self.config.inheritance {
+                        //TODO: Handle inheritance
+                    }
+                    let out = self.fd_map.open_file(&self.paths, span.id, Directory::Runs).await?;
+                    out.write_all(csv_format([&*data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &duration.to_string()]).as_bytes()).await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-                //TODO: Write runs file
             }
             //TODO: Synchronize span data and tree with GUI sessions
+            //TODO: Clear SpanData from spans map
             nt::Command::SpanFree(id) => todo!(),
             //TODO: Flush all opened file buffers
             //TODO: Write span tree file

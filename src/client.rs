@@ -36,7 +36,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::network_types as nt;
+use crate::{network_types as nt, session::Config};
 use crate::session::Session;
 
 pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
@@ -106,7 +106,7 @@ impl ClientTask {
                     nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
                     nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
                     nt::MatchResult::Ok => {
-                        let session = Session::new(self.client_index, 2).await?;
+                        let session = Session::new(self.client_index, Config { max_fd_count: 2, inheritance: false }).await?;
                         self.session = Some(session);
                         Ok(())
                     }
