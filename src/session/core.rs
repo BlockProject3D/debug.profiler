@@ -26,7 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::HashMap;
 use std::io::Result;
 use std::sync::Arc;
 
@@ -39,14 +38,9 @@ use crate::network_types as nt;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
+use super::state::{SpanState, SpanInstance};
 use super::tree;
 use super::utils::{ValueSet, csv_format};
-
-struct SpanData {
-    message: Option<String>,
-    value_set: ValueSet,
-    duration: f64
-}
 
 pub struct Config {
     pub max_fd_count: usize,
@@ -56,7 +50,7 @@ pub struct Config {
 pub struct Session {
     paths: Paths,
     fd_map: FdMap,
-    spans: HashMap<nt::SpanId, SpanData>,
+    spans: SpanState,
     config: Config,
     tree: tree::Span
 }
@@ -67,7 +61,7 @@ impl Session {
         Ok(Session {
             paths,
             fd_map: FdMap::new(config.max_fd_count),
-            spans: HashMap::new(),
+            spans: SpanState::new(),
             config,
             tree: tree::Span::new()
         })
@@ -99,7 +93,8 @@ impl Session {
                 out.write_all(opt_line.as_bytes()).await?;
                 out.write_all(opt_target.as_bytes()).await?;
                 out.write_all(opt_mpath.as_bytes()).await?;
-                self.tree.add_node(tree::Span::with_metadata(id.id, metadata));
+                self.tree.add_node(tree::Span::with_metadata(id.id, metadata.clone()));
+                self.spans.alloc_span(id.id, metadata);
                 //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanInit {
@@ -108,14 +103,12 @@ impl Session {
                 message,
                 value_set,
             } => {
-                self.spans.insert(
-                    span,
-                    SpanData {
-                        message,
-                        value_set: value_set.into(),
-                        duration: 0.0
-                    },
-                );
+                self.spans.alloc_instance(&span, SpanInstance {
+                    message,
+                    active: false,
+                    value_set: value_set.into(),
+                    duration: 0.0
+                });
                 if let Some(parent) = parent {
                     self.tree.relocate_node(span.id, parent.id);
                 }
@@ -132,13 +125,11 @@ impl Session {
                 message,
                 value_set,
             } => {
-                if let Some(span) = self.spans.get_mut(&span) {
+                if let Some(span) = self.spans.get_instance_mut(&span) {
                     if message.is_some() {
                         span.message = message;
                     }
-                    for kv in value_set {
-                        span.value_set.push(kv);
-                    }
+                    span.value_set.extend(value_set);
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
@@ -161,24 +152,29 @@ impl Session {
                     //TODO: Handle inheritance
                 }
                 let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
-                out.write_all(csv_format([&*msg, &value_set.to_string()]).as_bytes()).await?;
+                out.write_all(csv_format([&*span.instance.to_string(), &msg, &value_set.to_string()]).as_bytes()).await?;
                 //TODO: Synchronize span data and tree with GUI sessions
             },
             //TODO: Synchronize span data and tree with GUI sessions
-            nt::Command::SpanEnter(id) => todo!(),
+            nt::Command::SpanEnter(id) => {
+                if let Some(span) = self.spans.get_instance_mut(&id) {
+                    span.active = true;
+                }
+            },
             nt::Command::SpanExit { span, duration } => {
-                if let Some(data) = self.spans.get_mut(&span) {
+                if let Some(data) = self.spans.get_instance_mut(&span) {
+                    data.active = false;
                     data.duration = duration;
                     if self.config.inheritance {
                         //TODO: Handle inheritance
                     }
                     let out = self.fd_map.open_file(&self.paths, span.id, Directory::Runs).await?;
-                    out.write_all(csv_format([&*data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &duration.to_string()]).as_bytes()).await?;
+                    out.write_all(csv_format([&*span.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &duration.to_string()]).as_bytes()).await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanFree(id) => {
-                self.spans.remove(&id);
+                self.spans.free_instance(&id);
                 //TODO: Synchronize span data and tree with GUI sessions
             },
             //TODO: Flush all opened file buffers

@@ -58,6 +58,12 @@ impl ValueSet {
     }
 }
 
+impl Extend<(String, nt::Value)> for ValueSet {
+    fn extend<T: IntoIterator<Item = (String, nt::Value)>>(&mut self, iter: T) {
+        self.data.extend(iter);
+    }
+}
+
 pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
     cols.into_iter().map(|v| {
         if v.contains('"') || v.contains(',') {
