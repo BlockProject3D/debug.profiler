@@ -70,6 +70,10 @@ impl SpanState {
         self.spans.get(&id)
     }
 
+    pub fn get_instance(&self, span: &nt::SpanId) -> Option<&SpanInstance> {
+        self.spans.get(&span.id)?.instances.get(&span.instance)
+    }
+
     pub fn alloc_span(&mut self, id: u32, metadata: Arc<nt::Metadata>) {
         self.spans.insert(id, SpanData { metadata, last_instance: None, instances: HashMap::new() });
     }
@@ -84,9 +88,7 @@ impl SpanState {
         self.spans.get_mut(&span.id)?.instances.get_mut(&span.instance)
     }
 
-    pub fn free_instance(&mut self, span: &nt::SpanId) {
-        if let Some(data) = self.spans.get_mut(&span.id) {
-            data.last_instance = data.instances.remove(&span.instance);
-        }
+    pub fn free_instance(&mut self, span: &nt::SpanId) -> Option<SpanInstance> {
+        self.spans.get_mut(&span.id)?.instances.remove(&span.instance)
     }
 }
