@@ -28,6 +28,7 @@
 
 use std::collections::HashMap;
 use std::io::Result;
+use std::sync::Arc;
 
 use time::OffsetDateTime;
 use time::macros::format_description;
@@ -38,12 +39,13 @@ use crate::network_types as nt;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
+use super::tree;
 use super::utils::{ValueSet, csv_format};
 
 struct SpanData {
     message: Option<String>,
     value_set: ValueSet,
-    duration: f64,
+    duration: f64
 }
 
 pub struct Config {
@@ -55,7 +57,8 @@ pub struct Session {
     paths: Paths,
     fd_map: FdMap,
     spans: HashMap<nt::SpanId, SpanData>,
-    config: Config
+    config: Config,
+    tree: tree::Span
 }
 
 impl Session {
@@ -65,7 +68,8 @@ impl Session {
             paths,
             fd_map: FdMap::new(config.max_fd_count),
             spans: HashMap::new(),
-            config
+            config,
+            tree: tree::Span::new()
         })
     }
 
@@ -77,7 +81,8 @@ impl Session {
                     .fd_map
                     .open_file(&self.paths, id.id, Directory::Metadata)
                     .await?;
-                let opt_file = format!("FILE={}\n", metadata.file.unwrap_or_default());
+                let metadata = Arc::new(metadata);
+                let opt_file = format!("FILE={}\n", metadata.file.as_deref().unwrap_or_default());
                 let opt_name = format!("NAME={}\n", metadata.name);
                 let opt_level = format!("LEVEL={}\n", metadata.level);
                 let opt_line = match metadata.line {
@@ -86,7 +91,7 @@ impl Session {
                 };
                 let opt_target = format!("TARGET={}\n", metadata.target);
                 let opt_mpath =
-                    format!("MODULE_PATH={}\n", metadata.module_path.unwrap_or_default());
+                    format!("MODULE_PATH={}\n", metadata.module_path.as_deref().unwrap_or_default());
 
                 out.write_all(opt_file.as_bytes()).await?;
                 out.write_all(opt_name.as_bytes()).await?;
@@ -94,7 +99,7 @@ impl Session {
                 out.write_all(opt_line.as_bytes()).await?;
                 out.write_all(opt_target.as_bytes()).await?;
                 out.write_all(opt_mpath.as_bytes()).await?;
-                //TODO: Update span tree
+                self.tree.add_node(tree::Span::with_metadata(id.id, metadata));
                 //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanInit {
@@ -108,15 +113,20 @@ impl Session {
                     SpanData {
                         message,
                         value_set: value_set.into(),
-                        duration: 0.0,
+                        duration: 0.0
                     },
                 );
-                //TODO: Update span tree
+                if let Some(parent) = parent {
+                    self.tree.relocate_node(span.id, parent.id);
+                }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
-            //TODO: Update span tree
-            //TODO: Synchronize span data and tree with GUI sessions
-            nt::Command::SpanFollows { span, follows } => todo!(),
+            nt::Command::SpanFollows { span, follows } => {
+                if let Some(parent) = self.tree.find_parent(follows.id) {
+                    self.tree.relocate_node(span.id, parent);
+                }
+                //TODO: Synchronize span data and tree with GUI sessions
+            },
             nt::Command::SpanValues {
                 span,
                 message,
@@ -132,8 +142,6 @@ impl Session {
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
-            //TODO: Synchronize span data and tree with GUI sessions
-            //TODO: Write events file
             nt::Command::Event {
                 span,
                 metadata,
@@ -154,6 +162,7 @@ impl Session {
                 }
                 let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
                 out.write_all(csv_format([&*msg, &value_set.to_string()]).as_bytes()).await?;
+                //TODO: Synchronize span data and tree with GUI sessions
             },
             //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanEnter(id) => todo!(),
@@ -168,9 +177,10 @@ impl Session {
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
-            //TODO: Synchronize span data and tree with GUI sessions
-            //TODO: Clear SpanData from spans map
-            nt::Command::SpanFree(id) => todo!(),
+            nt::Command::SpanFree(id) => {
+                self.spans.remove(&id);
+                //TODO: Synchronize span data and tree with GUI sessions
+            },
             //TODO: Flush all opened file buffers
             //TODO: Write span tree file
             nt::Command::Terminate => todo!(),
