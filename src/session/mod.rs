@@ -30,6 +30,7 @@ mod fd_map;
 mod paths;
 mod utils;
 mod core;
+mod tree;
 
 pub use self::core::Session;
 pub use self::core::Config;
