@@ -66,6 +66,10 @@ impl SpanState {
         }
     }
 
+    pub fn get_data(&self, id: u32) -> Option<&SpanData> {
+        self.spans.get(&id)
+    }
+
     pub fn alloc_span(&mut self, id: u32, metadata: Arc<nt::Metadata>) {
         self.spans.insert(id, SpanData { metadata, last_instance: None, instances: HashMap::new() });
     }
