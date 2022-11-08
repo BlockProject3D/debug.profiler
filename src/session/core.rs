@@ -149,32 +149,43 @@ impl Session {
                 let span = span.unwrap_or(nt::SpanId { id: 0, instance: 0 });
                 let mut value_set = ValueSet::from(value_set);
                 if self.config.inheritance {
-                    //TODO: Handle inheritance
+                    if let Some(data) = self.spans.get_data(span.id) {
+                        if let Some(instance) = self.spans.get_instance(&span) {
+                            value_set.inherit_from(&data.metadata.name, instance.value_set.clone().into_iter())
+                        }
+                    }
                 }
                 let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
                 out.write_all(csv_format([&*span.instance.to_string(), &msg, &value_set.to_string()]).as_bytes()).await?;
                 //TODO: Synchronize span data and tree with GUI sessions
             },
-            //TODO: Synchronize span data and tree with GUI sessions
             nt::Command::SpanEnter(id) => {
                 if let Some(span) = self.spans.get_instance_mut(&id) {
                     span.active = true;
                 }
+                //TODO: Synchronize span data and tree with GUI sessions
             },
             nt::Command::SpanExit { span, duration } => {
                 if let Some(data) = self.spans.get_instance_mut(&span) {
                     data.active = false;
                     data.duration = duration;
-                    if self.config.inheritance {
-                        //TODO: Handle inheritance
-                    }
-                    let out = self.fd_map.open_file(&self.paths, span.id, Directory::Runs).await?;
-                    out.write_all(csv_format([&*span.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &duration.to_string()]).as_bytes()).await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanFree(id) => {
-                self.spans.free_instance(&id);
+                if let Some(mut data) = self.spans.free_instance(&id) {
+                    if self.config.inheritance {
+                        if let Some(parent) = self.tree.find_parent(id.id) {
+                            if let Some(data1) = self.spans.get_data(parent) {
+                                if let Some(parent) = self.spans.get_any_instance(parent) {
+                                    data.value_set.inherit_from(&data1.metadata.name, parent.value_set.clone().into_iter());
+                                }
+                            }
+                        }
+                    }
+                    let out = self.fd_map.open_file(&self.paths, id.id, Directory::Runs).await?;
+                    out.write_all(csv_format([&*id.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &data.duration.to_string()]).as_bytes()).await?;
+                }
                 //TODO: Synchronize span data and tree with GUI sessions
             },
             //TODO: Flush all opened file buffers
