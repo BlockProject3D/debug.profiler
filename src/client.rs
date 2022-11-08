@@ -41,6 +41,8 @@ use crate::session::Session;
 
 pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
 
+const DEFAULT_NET_BUFFER_SIZE: usize = 1024;
+
 pub struct Client {
     stop_signal: Sender<()>,
     index: usize,
@@ -73,6 +75,7 @@ struct ClientTask {
     stream: BufReader<TcpStream>,
     session: Option<Session>,
     client_index: usize,
+    net_buffer: Vec<u8>
 }
 
 impl ClientTask {
@@ -81,6 +84,7 @@ impl ClientTask {
             stream: BufReader::new(stream),
             session: None,
             client_index,
+            net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE]
         }
     }
 
@@ -95,7 +99,15 @@ impl ClientTask {
         match &mut self.session {
             Some(v) => {
                 let len = self.stream.read_u32_le().await?;
-                println!("Reading {} byte(s)", len);
+                if len as usize > self.net_buffer.len() {
+                    self.net_buffer.resize(len as usize, 0);
+                }
+                self.stream.read_exact(&mut self.net_buffer[..len as usize]).await?;
+                let cmd: nt::Command = match bincode::deserialize(&self.net_buffer[..len as usize]) {
+                    Ok(v) => v,
+                    Err(e) => return Self::kick(&e.to_string()),
+                };
+                v.handle_command(cmd).await?;
                 Ok(())
             }
             None => {

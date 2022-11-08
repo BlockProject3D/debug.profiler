@@ -53,10 +53,6 @@ impl ValueSet {
         .join(", ")
     }
 
-    pub fn push(&mut self, kv: (String, nt::Value)) {
-        self.data.push(kv)
-    }
-
     pub fn into_iter(self) -> impl IntoIterator<Item = (String, nt::Value)> {
         self.data.into_iter()
     }

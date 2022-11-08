@@ -36,6 +36,8 @@ pub struct SpanId {
     pub instance: u32,
 }
 
+//TODO: Implement platform information command
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
     SpanAlloc {
