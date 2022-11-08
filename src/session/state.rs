@@ -70,6 +70,12 @@ impl SpanState {
         self.spans.get(&id)
     }
 
+    pub fn get_any_instance(&self, id: u32) -> Option<&SpanInstance> {
+        let span = self.spans.get(&id)?;
+        span.instances.iter().next().map(|(_, v)| v)
+            .or_else(|| span.last_instance.as_ref())
+    }
+
     pub fn get_instance(&self, span: &nt::SpanId) -> Option<&SpanInstance> {
         self.spans.get(&span.id)?.instances.get(&span.instance)
     }
