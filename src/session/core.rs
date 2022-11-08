@@ -32,7 +32,8 @@ use std::sync::Arc;
 use time::OffsetDateTime;
 use time::macros::format_description;
 use time_tz::OffsetDateTimeExt;
-use tokio::io::AsyncWriteExt;
+use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::network_types as nt;
 
@@ -188,11 +189,14 @@ impl Session {
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             },
-            //TODO: Flush all opened file buffers
-            //TODO: Write span tree file
-            nt::Command::Terminate => todo!(),
+            nt::Command::Terminate => {
+                let file = File::create(self.paths.get_root().join("tree.txt")).await?;
+                let mut buffer = BufWriter::new(file);
+                self.tree.write(&mut buffer).await?;
+                self.fd_map.flush().await?;
+                //TODO: Synchronize with GUI sessions
+            },
         }
         Ok(())
     }
 }
-
