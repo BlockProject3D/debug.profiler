@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::io::Result;
-use std::path::PathBuf;
 
 use tokio::{
     fs::{File, OpenOptions},
@@ -82,5 +81,12 @@ impl FdMap {
         );
         self.fd_map.push(FdEntry { dir, span, file });
         Ok(self.fd_map.last_mut().map(|v| &mut v.file).unwrap())
+    }
+
+    pub async fn flush(&mut self) -> Result<()> {
+        for v in &mut self.fd_map {
+            v.file.flush().await?;
+        }
+        Ok(())
     }
 }
