@@ -68,6 +68,10 @@ impl Paths {
         })
     }
 
+    pub fn get_root(&self) -> &Path {
+        &self.dir
+    }
+
     pub fn get(&self, dir: Directory) -> &Path {
         match dir {
             Directory::Runs => &self.runs_dir,
