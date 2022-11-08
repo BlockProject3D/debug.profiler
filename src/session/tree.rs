@@ -26,7 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::Arc;
+use std::{sync::Arc, collections::VecDeque, io::Result};
+
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::network_types::Metadata;
 
@@ -123,6 +125,18 @@ impl Span {
             }
         }
         return false;
+    }
+
+    pub async fn write<T: AsyncWrite + AsyncWriteExt + Unpin>(&self, file: &mut T) -> Result<()> {
+        let mut queue = VecDeque::new();
+        queue.push_back((self.metadata.name.clone(), self));
+        while let Some((path, elem)) = queue.pop_front() {
+            file.write_all(format!("{} {}\n", path, elem.id).as_bytes()).await?;
+            for child in &elem.children {
+                queue.push_back((format!("{}/{}", path, child.metadata.name), child))
+            }
+        }
+        Ok(())
     }
 }
 
