@@ -56,7 +56,7 @@ impl Paths {
         let dir = get_data_dir(client_index).await?;
         let runs_dir = dir.join("runs");
         let events_dir = dir.join("events");
-        let metadata_dir = dir.join("events");
+        let metadata_dir = dir.join("metadata");
         tokio::fs::create_dir(&runs_dir).await?;
         tokio::fs::create_dir(&events_dir).await?;
         tokio::fs::create_dir(&metadata_dir).await?;
