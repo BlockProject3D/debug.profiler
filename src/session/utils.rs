@@ -66,10 +66,16 @@ impl Extend<(String, nt::Value)> for ValueSet {
 
 pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
     cols.into_iter().map(|v| {
-        if v.contains('"') || v.contains(',') {
-            v.replace('"', "\"\"")
+        let flag = v.contains(',');
+        if v.contains('"') || flag {
+            let s = v.replace('"', "\"\"");
+            if flag {
+                format!("\"{}\"", s)
+            } else {
+                s
+            }
         } else {
             v.into()
         }
-    }).collect::<Vec<String>>().join(",")
+    }).collect::<Vec<String>>().join(",") + "\n"
 }
