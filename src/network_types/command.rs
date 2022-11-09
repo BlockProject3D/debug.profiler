@@ -82,13 +82,3 @@ pub enum Command {
 
     Terminate,
 }
-
-impl Command {
-    pub fn is_terminate(&self) -> bool {
-        // The target application has requested termination.
-        match self {
-            Command::Terminate => true,
-            _ => false,
-        }
-    }
-}
