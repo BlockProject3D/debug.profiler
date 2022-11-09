@@ -77,16 +77,16 @@ impl Session {
                     .open_file(&self.paths, id.id, Directory::Metadata)
                     .await?;
                 let metadata = Arc::new(metadata);
-                let opt_file = format!("FILE={}\n", metadata.file.as_deref().unwrap_or_default());
-                let opt_name = format!("NAME={}\n", metadata.name);
-                let opt_level = format!("LEVEL={}\n", metadata.level);
+                let opt_file = format!("File,{}\n", metadata.file.as_deref().unwrap_or_default());
+                let opt_name = format!("Name,{}\n", metadata.name);
+                let opt_level = format!("Level,{}\n", metadata.level);
                 let opt_line = match metadata.line {
-                    Some(v) => format!("LINE={}\n", v),
-                    None => "LINE=\n".into(),
+                    Some(v) => format!("Line,{}\n", v),
+                    None => "Line,\n".into(),
                 };
-                let opt_target = format!("TARGET={}\n", metadata.target);
+                let opt_target = format!("Target,{}\n", metadata.target);
                 let opt_mpath =
-                    format!("MODULE_PATH={}\n", metadata.module_path.as_deref().unwrap_or_default());
+                    format!("Module path,{}\n", metadata.module_path.as_deref().unwrap_or_default());
 
                 out.write_all(opt_file.as_bytes()).await?;
                 out.write_all(opt_name.as_bytes()).await?;
@@ -157,7 +157,7 @@ impl Session {
                     }
                 }
                 let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
-                out.write_all(csv_format([&*span.instance.to_string(), &msg, &value_set.to_string()]).as_bytes()).await?;
+                out.write_all((csv_format([&*span.instance.to_string(), &msg]) + "," + &value_set.to_string() + "\n").as_bytes()).await?;
                 //TODO: Synchronize span data and tree with GUI sessions
             },
             nt::Command::SpanEnter(id) => {
@@ -185,7 +185,7 @@ impl Session {
                         }
                     }
                     let out = self.fd_map.open_file(&self.paths, id.id, Directory::Runs).await?;
-                    out.write_all(csv_format([&*id.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.value_set.clone().to_string(), &data.duration.to_string()]).as_bytes()).await?;
+                    out.write_all((csv_format([&*id.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.duration.to_string()]) + "," + &data.value_set.clone().to_string() + "\n").as_bytes()).await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             },

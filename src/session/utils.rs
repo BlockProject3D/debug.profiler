@@ -47,10 +47,10 @@ impl ValueSet {
     }
 
     pub fn to_string(self) -> String {
-        self.data.into_iter()
-        .map(|(k, v)| format!("{} = {}", k, v))
-        .collect::<Vec<String>>()
-        .join(", ")
+        let vals = self.data.into_iter()
+            .map(|(k, v)| format!("{} = {}", k, v))
+            .collect::<Vec<String>>();
+        csv_format(vals.iter().map(|v| &**v))
     }
 
     pub fn into_iter(self) -> impl IntoIterator<Item = (String, nt::Value)> {
@@ -77,5 +77,5 @@ pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
         } else {
             v.into()
         }
-    }).collect::<Vec<String>>().join(",") + "\n"
+    }).collect::<Vec<String>>().join(",")
 }
