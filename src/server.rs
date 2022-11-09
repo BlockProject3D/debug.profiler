@@ -28,33 +28,43 @@
 
 use std::io::Result;
 use tokio::{
-    net::TcpListener,
-    sync::oneshot::{channel, Receiver, Sender},
-    task::JoinHandle,
+    task::JoinHandle, sync::mpsc::{Sender, channel, Receiver}, net::TcpStream
 };
 
 use crate::client_manager::{ClientManager, JoinResult};
 
+const DEFAULT_PORT: u16 = 4026;
+const COMMAND_CHAN_SIZE: usize = 4;
+
+#[derive(Debug)]
+pub enum Command {
+    Stop,
+    Connect(String)
+}
+
 pub struct Server {
-    stop_signal: Sender<()>,
+    command_sender: Sender<Command>,
     task: JoinHandle<Result<()>>,
 }
 
 impl Server {
-    pub async fn new(ip: &str) -> Result<Server> {
-        let (stop_signal, receiver) = channel();
-        let socket = TcpListener::bind(ip).await?;
+    pub async fn new() -> Result<Server> {
+        let (command_sender, receiver) = channel(COMMAND_CHAN_SIZE);
         let task = tokio::spawn(async {
-            let mut task = ServerTask::new(socket, receiver);
+            let mut task = ServerTask::new(receiver);
             task.run().await?;
             task.stop().await;
             Ok(())
         });
-        Ok(Server { stop_signal, task })
+        Ok(Server { command_sender, task })
+    }
+
+    pub async fn connect(&mut self, ip: &str) {
+        self.command_sender.send(Command::Connect(ip.into())).await.unwrap()
     }
 
     pub async fn stop(self) {
-        self.stop_signal.send(()).unwrap();
+        self.command_sender.send(Command::Stop).await.unwrap();
         if let Err(e) = self.task.await {
             eprintln!("An error has occurred while running the server: {}", e);
         }
@@ -63,16 +73,14 @@ impl Server {
 
 struct ServerTask {
     manager: ClientManager,
-    socket: TcpListener,
-    stop_signal: Receiver<()>,
+    command_receiver: Receiver<Command>,
 }
 
 impl ServerTask {
-    pub fn new(socket: TcpListener, stop_signal: Receiver<()>) -> ServerTask {
+    pub fn new(command_receiver: Receiver<Command>) -> ServerTask {
         ServerTask {
             manager: ClientManager::new(),
-            socket,
-            stop_signal,
+            command_receiver,
         }
     }
 
@@ -91,18 +99,41 @@ impl ServerTask {
         }
     }
 
+    async fn handle_command(&mut self, cmd: Command) -> Result<bool> {
+        match cmd {
+            Command::Stop => Ok(true),
+            Command::Connect(mut v) => {
+                if !v.contains(':') {
+                    v += &format!(":{}", DEFAULT_PORT);
+                }
+                let stream = match TcpStream::connect(&v).await {
+                    Err(e) => {
+                        eprintln!("Failed to connect to application at {}: {}", v, e);
+                        return Ok(false);
+                    }
+                    Ok(v) => v
+                };
+                let addr = stream.peer_addr()?;
+                self.manager.add(stream, addr);
+                Ok(false)
+            }
+        }
+    }
+
     pub async fn run(&mut self) -> Result<()> {
         loop {
             tokio::select! {
-                res = self.socket.accept() => {
-                    let (stream, addr) = res?;
-                    println!("Client has connected: {}", addr);
-                    self.manager.add(stream, addr);
+                res = self.command_receiver.recv() => {
+                    if let Some(cmd) = res {
+                        let flag = self.handle_command(cmd).await?;
+                        if flag {
+                            break;
+                        }
+                    }
                 },
                 res = self.manager.get_client_stop() => {
                     self.handle_client_stop(res);
-                },
-                _ = &mut self.stop_signal => break
+                }
             }
         }
         Ok(())
