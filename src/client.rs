@@ -30,7 +30,7 @@ use std::net::SocketAddr;
 
 use std::io::Result;
 use tokio::{
-    io::{AsyncReadExt, BufReader},
+    io::{AsyncReadExt, BufReader, AsyncWriteExt},
     net::TcpStream,
     sync::oneshot::{channel, Receiver, Sender},
     task::JoinHandle,
@@ -120,6 +120,8 @@ impl ClientTask {
                     nt::MatchResult::Ok => {
                         let session = Session::new(self.client_index, Config { max_fd_count: 2, inheritance: false }).await?;
                         self.session = Some(session);
+                        let hello = nt::HELLO_PACKET.to_bytes();
+                        self.stream.write_all(&hello).await?;
                         Ok(())
                     }
                 }
