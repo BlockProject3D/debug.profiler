@@ -118,7 +118,7 @@ impl ClientTask {
                     nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
                     nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
                     nt::MatchResult::Ok => {
-                        let session = Session::new(self.client_index, Config { max_fd_count: 2, inheritance: false }).await?;
+                        let session = Session::new(self.client_index, Config { max_fd_count: 2, inheritance: true }).await?;
                         self.session = Some(session);
                         let hello = nt::HELLO_PACKET.to_bytes();
                         self.stream.write_all(&hello).await?;

@@ -193,6 +193,7 @@ impl Session {
                 let file = File::create(self.paths.get_root().join("tree.txt")).await?;
                 let mut buffer = BufWriter::new(file);
                 self.tree.write(&mut buffer).await?;
+                buffer.flush().await?;
                 self.fd_map.flush().await?;
                 //TODO: Synchronize with GUI sessions
             },
