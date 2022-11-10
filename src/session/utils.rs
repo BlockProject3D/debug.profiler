@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -30,7 +30,7 @@ use crate::network_types as nt;
 
 #[derive(Clone)]
 pub struct ValueSet {
-    data: Vec<(String, nt::Value)>
+    data: Vec<(String, nt::Value)>,
 }
 
 impl From<Vec<(String, nt::Value)>> for ValueSet {
@@ -40,14 +40,21 @@ impl From<Vec<(String, nt::Value)>> for ValueSet {
 }
 
 impl ValueSet {
-    pub fn inherit_from<T: IntoIterator<Item = (String, nt::Value)>>(&mut self, parent: &str, iter: T) {
-        self.data.extend(iter.into_iter().map(|(k, v)| {
-            (format!("{}::{}", parent, k), v)
-        }))
+    pub fn inherit_from<T: IntoIterator<Item = (String, nt::Value)>>(
+        &mut self,
+        parent: &str,
+        iter: T,
+    ) {
+        self.data.extend(
+            iter.into_iter()
+                .map(|(k, v)| (format!("{}::{}", parent, k), v)),
+        )
     }
 
     pub fn to_string(self) -> String {
-        let vals = self.data.into_iter()
+        let vals = self
+            .data
+            .into_iter()
             .map(|(k, v)| format!("{} = {}", k, v))
             .collect::<Vec<String>>();
         csv_format(vals.iter().map(|v| &**v))
@@ -65,17 +72,20 @@ impl Extend<(String, nt::Value)> for ValueSet {
 }
 
 pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
-    cols.into_iter().map(|v| {
-        let flag = v.contains(',');
-        if v.contains('"') || flag {
-            let s = v.replace('"', "\"\"");
-            if flag {
-                format!("\"{}\"", s)
+    cols.into_iter()
+        .map(|v| {
+            let flag = v.contains(',');
+            if v.contains('"') || flag {
+                let s = v.replace('"', "\"\"");
+                if flag {
+                    format!("\"{}\"", s)
+                } else {
+                    s
+                }
             } else {
-                s
+                v.into()
             }
-        } else {
-            v.into()
-        }
-    }).collect::<Vec<String>>().join(",")
+        })
+        .collect::<Vec<String>>()
+        .join(",")
 }

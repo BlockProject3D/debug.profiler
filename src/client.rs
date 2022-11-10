@@ -30,14 +30,14 @@ use std::net::SocketAddr;
 
 use std::io::Result;
 use tokio::{
-    io::{AsyncReadExt, BufReader, AsyncWriteExt},
+    io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
     sync::oneshot::{channel, Receiver, Sender},
     task::JoinHandle,
 };
 
-use crate::{network_types as nt, session::Config};
 use crate::session::Session;
+use crate::{network_types as nt, session::Config};
 
 pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
 
@@ -75,7 +75,7 @@ struct ClientTask {
     stream: BufReader<TcpStream>,
     session: Option<Session>,
     client_index: usize,
-    net_buffer: Vec<u8>
+    net_buffer: Vec<u8>,
 }
 
 impl ClientTask {
@@ -84,7 +84,7 @@ impl ClientTask {
             stream: BufReader::new(stream),
             session: None,
             client_index,
-            net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE]
+            net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE],
         }
     }
 
@@ -102,8 +102,11 @@ impl ClientTask {
                 if len as usize > self.net_buffer.len() {
                     self.net_buffer.resize(len as usize, 0);
                 }
-                self.stream.read_exact(&mut self.net_buffer[..len as usize]).await?;
-                let cmd: nt::Command = match bincode::deserialize(&self.net_buffer[..len as usize]) {
+                self.stream
+                    .read_exact(&mut self.net_buffer[..len as usize])
+                    .await?;
+                let cmd: nt::Command = match bincode::deserialize(&self.net_buffer[..len as usize])
+                {
                     Ok(v) => v,
                     Err(e) => return Self::kick(&e.to_string()),
                 };
@@ -118,7 +121,14 @@ impl ClientTask {
                     nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
                     nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
                     nt::MatchResult::Ok => {
-                        let session = Session::new(self.client_index, Config { max_fd_count: 2, inheritance: true }).await?;
+                        let session = Session::new(
+                            self.client_index,
+                            Config {
+                                max_fd_count: 2,
+                                inheritance: true,
+                            },
+                        )
+                        .await?;
                         self.session = Some(session);
                         let hello = nt::HELLO_PACKET.to_bytes();
                         self.stream.write_all(&hello).await?;

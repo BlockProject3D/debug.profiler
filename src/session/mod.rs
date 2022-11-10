@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+mod core;
 mod fd_map;
 mod paths;
-mod utils;
-mod core;
-mod tree;
 mod state;
+mod tree;
+mod utils;
 
-pub use self::core::Session;
 pub use self::core::Config;
+pub use self::core::Session;

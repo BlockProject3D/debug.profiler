@@ -1,10 +1,10 @@
 // Copyright (c) 2022, BlockProject 3D
-// 
+//
 // All rights reserved.
-// 
+//
 // Redistribution and use in source and binary forms, with or without modification,
 // are permitted provided that the following conditions are met:
-// 
+//
 //     * Redistributions of source code must retain the above copyright notice,
 //       this list of conditions and the following disclaimer.
 //     * Redistributions in binary form must reproduce the above copyright notice,
@@ -13,7 +13,7 @@
 //     * Neither the name of BlockProject 3D nor the names of its contributors
 //       may be used to endorse or promote products derived from this software
 //       without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -29,8 +29,8 @@
 use std::io::Result;
 use std::sync::Arc;
 
-use time::OffsetDateTime;
 use time::macros::format_description;
+use time::OffsetDateTime;
 use time_tz::OffsetDateTimeExt;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -39,13 +39,13 @@ use crate::network_types as nt;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
-use super::state::{SpanState, SpanInstance};
+use super::state::{SpanInstance, SpanState};
 use super::tree;
-use super::utils::{ValueSet, csv_format};
+use super::utils::{csv_format, ValueSet};
 
 pub struct Config {
     pub max_fd_count: usize,
-    pub inheritance: bool
+    pub inheritance: bool,
 }
 
 pub struct Session {
@@ -53,7 +53,7 @@ pub struct Session {
     fd_map: FdMap,
     spans: SpanState,
     config: Config,
-    tree: tree::Span
+    tree: tree::Span,
 }
 
 impl Session {
@@ -64,7 +64,7 @@ impl Session {
             fd_map: FdMap::new(config.max_fd_count),
             spans: SpanState::new(),
             config,
-            tree: tree::Span::new()
+            tree: tree::Span::new(),
         })
     }
 
@@ -85,8 +85,10 @@ impl Session {
                     None => "Line,\n".into(),
                 };
                 let opt_target = format!("Target,{}\n", metadata.target);
-                let opt_mpath =
-                    format!("Module path,{}\n", metadata.module_path.as_deref().unwrap_or_default());
+                let opt_mpath = format!(
+                    "Module path,{}\n",
+                    metadata.module_path.as_deref().unwrap_or_default()
+                );
 
                 out.write_all(opt_file.as_bytes()).await?;
                 out.write_all(opt_name.as_bytes()).await?;
@@ -94,7 +96,8 @@ impl Session {
                 out.write_all(opt_line.as_bytes()).await?;
                 out.write_all(opt_target.as_bytes()).await?;
                 out.write_all(opt_mpath.as_bytes()).await?;
-                self.tree.add_node(tree::Span::with_metadata(id.id, metadata.clone()));
+                self.tree
+                    .add_node(tree::Span::with_metadata(id.id, metadata.clone()));
                 self.spans.alloc_span(id.id, metadata);
                 //TODO: Synchronize span data and tree with GUI sessions
             }
@@ -104,12 +107,15 @@ impl Session {
                 message,
                 value_set,
             } => {
-                self.spans.alloc_instance(&span, SpanInstance {
-                    message,
-                    active: false,
-                    value_set: value_set.into(),
-                    duration: 0.0
-                });
+                self.spans.alloc_instance(
+                    &span,
+                    SpanInstance {
+                        message,
+                        active: false,
+                        value_set: value_set.into(),
+                        duration: 0.0,
+                    },
+                );
                 if let Some(parent) = parent {
                     self.tree.relocate_node(span.id, parent.id);
                 }
@@ -120,7 +126,7 @@ impl Session {
                     self.tree.relocate_node(span.id, parent);
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             nt::Command::SpanValues {
                 span,
                 message,
@@ -141,31 +147,54 @@ impl Session {
                 message,
                 value_set,
             } => {
-                let date = OffsetDateTime::from_unix_timestamp(time).unwrap_or(OffsetDateTime::now_utc())
-                    .to_timezone(time_tz::system::get_timezone().unwrap_or(time_tz::timezones::db::us::CENTRAL));
+                let date = OffsetDateTime::from_unix_timestamp(time)
+                    .unwrap_or(OffsetDateTime::now_utc())
+                    .to_timezone(
+                        time_tz::system::get_timezone()
+                            .unwrap_or(time_tz::timezones::db::us::CENTRAL),
+                    );
                 let date_format = format_description!("[weekday repr:short] [month repr:short] [day] [hour repr:12]:[minute]:[second] [period case:upper]");
                 let date_str = date.format(date_format).unwrap_or("<error>".into());
                 let (target, module) = metadata.get_target_module();
-                let msg = format!("({}) <{}> {}: {}", date_str, target, module.unwrap_or("main"), message.as_ref().unwrap_or(&metadata.name));
+                let msg = format!(
+                    "({}) <{}> {}: {}",
+                    date_str,
+                    target,
+                    module.unwrap_or("main"),
+                    message.as_ref().unwrap_or(&metadata.name)
+                );
                 let span = span.unwrap_or(nt::SpanId { id: 0, instance: 0 });
                 let mut value_set = ValueSet::from(value_set);
                 if self.config.inheritance {
                     if let Some(data) = self.spans.get_data(span.id) {
                         if let Some(instance) = self.spans.get_instance(&span) {
-                            value_set.inherit_from(&data.metadata.name, instance.value_set.clone().into_iter())
+                            value_set.inherit_from(
+                                &data.metadata.name,
+                                instance.value_set.clone().into_iter(),
+                            )
                         }
                     }
                 }
-                let out = self.fd_map.open_file(&self.paths, span.id, Directory::Events).await?;
-                out.write_all((csv_format([&*span.instance.to_string(), &msg]) + "," + &value_set.to_string() + "\n").as_bytes()).await?;
+                let out = self
+                    .fd_map
+                    .open_file(&self.paths, span.id, Directory::Events)
+                    .await?;
+                out.write_all(
+                    (csv_format([&*span.instance.to_string(), &msg])
+                        + ","
+                        + &value_set.to_string()
+                        + "\n")
+                        .as_bytes(),
+                )
+                .await?;
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             nt::Command::SpanEnter(id) => {
                 if let Some(span) = self.spans.get_instance_mut(&id) {
                     span.active = true;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             nt::Command::SpanExit { span, duration } => {
                 if let Some(data) = self.spans.get_instance_mut(&span) {
                     data.active = false;
@@ -179,16 +208,32 @@ impl Session {
                         if let Some(parent) = self.tree.find_parent(id.id) {
                             if let Some(data1) = self.spans.get_data(parent) {
                                 if let Some(parent) = self.spans.get_any_instance(parent) {
-                                    data.value_set.inherit_from(&data1.metadata.name, parent.value_set.clone().into_iter());
+                                    data.value_set.inherit_from(
+                                        &data1.metadata.name,
+                                        parent.value_set.clone().into_iter(),
+                                    );
                                 }
                             }
                         }
                     }
-                    let out = self.fd_map.open_file(&self.paths, id.id, Directory::Runs).await?;
-                    out.write_all((csv_format([&*id.instance.to_string(), &data.message.as_deref().unwrap_or_default(), &data.duration.to_string()]) + "," + &data.value_set.clone().to_string() + "\n").as_bytes()).await?;
+                    let out = self
+                        .fd_map
+                        .open_file(&self.paths, id.id, Directory::Runs)
+                        .await?;
+                    out.write_all(
+                        (csv_format([
+                            &*id.instance.to_string(),
+                            &data.message.as_deref().unwrap_or_default(),
+                            &data.duration.to_string(),
+                        ]) + ","
+                            + &data.value_set.clone().to_string()
+                            + "\n")
+                            .as_bytes(),
+                    )
+                    .await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-            },
+            }
             nt::Command::Terminate => {
                 let file = File::create(self.paths.get_root().join("tree.txt")).await?;
                 let mut buffer = BufWriter::new(file);
@@ -196,7 +241,7 @@ impl Session {
                 buffer.flush().await?;
                 self.fd_map.flush().await?;
                 //TODO: Synchronize with GUI sessions
-            },
+            }
         }
         Ok(())
     }

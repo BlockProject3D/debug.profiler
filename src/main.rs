@@ -27,8 +27,8 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use server::Server;
-use tokio::io::{BufReader, AsyncBufReadExt};
 use std::io::Result;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 mod client;
 mod client_manager;

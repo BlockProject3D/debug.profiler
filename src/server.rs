@@ -28,7 +28,9 @@
 
 use std::io::Result;
 use tokio::{
-    task::JoinHandle, sync::mpsc::{Sender, channel, Receiver}, net::TcpStream
+    net::TcpStream,
+    sync::mpsc::{channel, Receiver, Sender},
+    task::JoinHandle,
 };
 
 use crate::client_manager::{ClientManager, JoinResult};
@@ -39,7 +41,7 @@ const COMMAND_CHAN_SIZE: usize = 4;
 #[derive(Debug)]
 pub enum Command {
     Stop,
-    Connect(String)
+    Connect(String),
 }
 
 pub struct Server {
@@ -56,11 +58,17 @@ impl Server {
             task.stop().await;
             Ok(())
         });
-        Ok(Server { command_sender, task })
+        Ok(Server {
+            command_sender,
+            task,
+        })
     }
 
     pub async fn connect(&mut self, ip: &str) {
-        self.command_sender.send(Command::Connect(ip.into())).await.unwrap()
+        self.command_sender
+            .send(Command::Connect(ip.into()))
+            .await
+            .unwrap()
     }
 
     pub async fn stop(self) {
@@ -111,7 +119,7 @@ impl ServerTask {
                         eprintln!("Failed to connect to application at {}: {}", v, e);
                         return Ok(false);
                     }
-                    Ok(v) => v
+                    Ok(v) => v,
                 };
                 let addr = stream.peer_addr()?;
                 self.manager.add(stream, addr);
