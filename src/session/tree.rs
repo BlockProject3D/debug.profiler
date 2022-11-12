@@ -134,7 +134,7 @@ impl Span {
         let mut queue = VecDeque::new();
         queue.push_back((self.metadata.name.clone(), self));
         while let Some((path, elem)) = queue.pop_front() {
-            file.write_all(format!("{} {}\n", path, elem.id).as_bytes())
+            file.write_all(format!("{} {}\n", elem.id, path).as_bytes())
                 .await?;
             for child in &elem.children {
                 queue.push_back((format!("{}/{}", path, child.metadata.name), child))
