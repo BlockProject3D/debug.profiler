@@ -45,7 +45,9 @@ pub struct Paths {
 
 async fn get_data_dir(client_index: usize) -> Result<PathBuf> {
     let data_dir = Path::new("./data");
-    tokio::fs::create_dir(data_dir).await?;
+    if !data_dir.is_dir() {
+        tokio::fs::create_dir(data_dir).await?;
+    }
     let client_dir = data_dir.join(format!("{}", client_index));
     tokio::fs::create_dir(&client_dir).await?;
     Ok(client_dir)
