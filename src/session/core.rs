@@ -68,7 +68,6 @@ impl Session {
         })
     }
 
-    //TODO: Figure out how to pass system informations
     pub async fn handle_command(&mut self, cmd: nt::Command) -> Result<()> {
         match cmd {
             nt::Command::SpanAlloc { id, metadata } => {
@@ -233,7 +232,7 @@ impl Session {
                     .await?;
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
-            }
+            },
             nt::Command::Terminate => {
                 let file = File::create(self.paths.get_root().join("tree.txt")).await?;
                 let mut buffer = BufWriter::new(file);
@@ -241,6 +240,19 @@ impl Session {
                 buffer.flush().await?;
                 self.fd_map.flush().await?;
                 //TODO: Synchronize with GUI sessions
+            },
+            nt::Command::Project { app_name, name, version, system } => {
+                let file = File::create(self.paths.get_root().join("info.csv")).await?;
+                let mut buffer = BufWriter::new(file);
+                buffer.write_all((csv_format(["AppName", &app_name]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["Name", &name]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["Version", &version]) + "\n").as_bytes()).await?;
+                if let Some(system) = system {
+                    buffer.write_all((csv_format(["Os", &system.os]) + "\n").as_bytes()).await?;
+                    buffer.write_all((csv_format(["CpuName", &system.cpu_name]) + "\n").as_bytes()).await?;
+                    buffer.write_all((csv_format(["CpuCoreCount", &system.cpu_core_count.to_string()]) + "\n").as_bytes()).await?;
+                }
+                buffer.flush().await?;
             }
         }
         Ok(())
