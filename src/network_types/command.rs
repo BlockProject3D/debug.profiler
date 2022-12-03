@@ -36,11 +36,17 @@ pub struct SpanId {
     pub instance: u32,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-pub struct SystemInfo {
-    pub cpu_name: String,
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct CpuInfo {
+    pub name: String,
+    pub core_count: u32
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct TargetInfo {
     pub os: String,
-    pub cpu_core_count: u32
+    pub family: String,
+    pub arch: String
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -49,7 +55,9 @@ pub enum Command {
         app_name: String,
         name: String,
         version: String,
-        system: Option<SystemInfo>
+        target: TargetInfo,
+        command_line: String,
+        cpu: Option<CpuInfo>
     },
 
     SpanAlloc {

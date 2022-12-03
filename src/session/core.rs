@@ -241,16 +241,19 @@ impl Session {
                 self.fd_map.flush().await?;
                 //TODO: Synchronize with GUI sessions
             },
-            nt::Command::Project { app_name, name, version, system } => {
+            nt::Command::Project { app_name, name, version, target, command_line, cpu } => {
                 let file = File::create(self.paths.get_root().join("info.csv")).await?;
                 let mut buffer = BufWriter::new(file);
                 buffer.write_all((csv_format(["AppName", &app_name]) + "\n").as_bytes()).await?;
                 buffer.write_all((csv_format(["Name", &name]) + "\n").as_bytes()).await?;
                 buffer.write_all((csv_format(["Version", &version]) + "\n").as_bytes()).await?;
-                if let Some(system) = system {
-                    buffer.write_all((csv_format(["Os", &system.os]) + "\n").as_bytes()).await?;
-                    buffer.write_all((csv_format(["CpuName", &system.cpu_name]) + "\n").as_bytes()).await?;
-                    buffer.write_all((csv_format(["CpuCoreCount", &system.cpu_core_count.to_string()]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["CommandLine", &command_line]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["TargetOs", &target.os]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["TargetFamily", &target.family]) + "\n").as_bytes()).await?;
+                buffer.write_all((csv_format(["TargetArch", &target.arch]) + "\n").as_bytes()).await?;
+                if let Some(cpu) = cpu {
+                    buffer.write_all((csv_format(["CpuName", &cpu.name]) + "\n").as_bytes()).await?;
+                    buffer.write_all((csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n").as_bytes()).await?;
                 }
                 buffer.flush().await?;
             }
