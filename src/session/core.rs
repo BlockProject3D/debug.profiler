@@ -28,6 +28,7 @@
 
 use std::io::Result;
 use std::sync::Arc;
+use std::time::Duration;
 
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -36,7 +37,6 @@ use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::network_types as nt;
-use crate::network_types::Duration;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
@@ -113,10 +113,7 @@ impl Session {
                         message,
                         active: false,
                         value_set: value_set.into(),
-                        duration: Duration {
-                            seconds: 0,
-                            nano_seconds: 0
-                        },
+                        duration: Duration::new(0, 0),
                     },
                 );
                 if let Some(parent) = parent {
@@ -201,7 +198,7 @@ impl Session {
             nt::Command::SpanExit { span, duration } => {
                 if let Some(data) = self.spans.get_instance_mut(&span) {
                     data.active = false;
-                    data.duration = duration;
+                    data.duration = Duration::new(duration.seconds, duration.nano_seconds);
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
@@ -227,8 +224,9 @@ impl Session {
                         (csv_format([
                             &*id.instance.to_string(),
                             &data.message.as_deref().unwrap_or_default(),
-                            &data.duration.seconds.to_string(),
-                            &data.duration.nano_seconds.to_string()
+                            &data.duration.as_secs().to_string(),
+                            &data.duration.subsec_millis().to_string(),
+                            &(data.duration.subsec_micros() - (data.duration.subsec_millis() * 1000)).to_string()
                         ]) + ","
                             + &data.value_set.clone().to_string()
                             + "\n")

@@ -27,9 +27,9 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{collections::HashMap, sync::Arc};
+use std::time::Duration;
 
 use crate::network_types as nt;
-use crate::network_types::Duration;
 
 use super::utils::ValueSet;
 
