@@ -198,7 +198,7 @@ impl Session {
             nt::Command::SpanExit { span, duration } => {
                 if let Some(data) = self.spans.get_instance_mut(&span) {
                     data.active = false;
-                    data.duration = Duration::new(duration.seconds, duration.nano_seconds);
+                    data.duration = Duration::new(duration.seconds.into(), duration.nano_seconds);
                 }
                 //TODO: Synchronize span data and tree with GUI sessions
             }
