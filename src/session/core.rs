@@ -36,6 +36,7 @@ use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::network_types as nt;
+use crate::network_types::Duration;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
@@ -112,7 +113,10 @@ impl Session {
                         message,
                         active: false,
                         value_set: value_set.into(),
-                        duration: 0.0,
+                        duration: Duration {
+                            seconds: 0,
+                            nano_seconds: 0
+                        },
                     },
                 );
                 if let Some(parent) = parent {
@@ -223,7 +227,8 @@ impl Session {
                         (csv_format([
                             &*id.instance.to_string(),
                             &data.message.as_deref().unwrap_or_default(),
-                            &data.duration.to_string(),
+                            &data.duration.seconds.to_string(),
+                            &data.duration.nano_seconds.to_string()
                         ]) + ","
                             + &data.value_set.clone().to_string()
                             + "\n")

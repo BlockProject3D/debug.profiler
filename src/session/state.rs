@@ -29,13 +29,14 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::network_types as nt;
+use crate::network_types::Duration;
 
 use super::utils::ValueSet;
 
 pub struct SpanInstance {
     pub message: Option<String>,
     pub value_set: ValueSet,
-    pub duration: f64,
+    pub duration: Duration,
     pub active: bool,
 }
 
