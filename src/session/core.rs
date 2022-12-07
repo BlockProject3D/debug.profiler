@@ -237,6 +237,24 @@ impl Session {
                 //TODO: Synchronize span data and tree with GUI sessions
             },
             nt::Command::Terminate => {
+                let file = File::create(self.paths.get_root().join("times.csv")).await?;
+                let mut buffer = BufWriter::new(file);
+                for (index, data) in self.spans.iter_mut() {
+                    data.average /= data.run_count as u32;
+                    buffer.write_all((csv_format([
+                        &*index.to_string(),
+                        &data.min.as_secs().to_string(),
+                        &data.min.subsec_millis().to_string(),
+                        &(data.min.subsec_micros() - (data.min.subsec_millis() * 1000)).to_string(),
+                        &data.max.as_secs().to_string(),
+                        &data.max.subsec_millis().to_string(),
+                        &(data.max.subsec_micros() - (data.max.subsec_millis() * 1000)).to_string(),
+                        &data.average.as_secs().to_string(),
+                        &data.average.subsec_millis().to_string(),
+                        &(data.average.subsec_micros() - (data.average.subsec_millis() * 1000)).to_string(),
+                    ]) + "\n").as_bytes()).await?;
+                }
+                buffer.flush().await?;
                 let file = File::create(self.paths.get_root().join("tree.txt")).await?;
                 let mut buffer = BufWriter::new(file);
                 self.tree.write(&mut buffer).await?;

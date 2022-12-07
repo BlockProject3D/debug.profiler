@@ -43,6 +43,10 @@ pub struct SpanInstance {
 pub struct SpanData {
     pub metadata: Arc<nt::Metadata>,
     pub last_instance: Option<SpanInstance>,
+    pub min: Duration,
+    pub max: Duration,
+    pub average: Duration,
+    pub run_count: usize,
     instances: HashMap<u32, SpanInstance>,
 }
 
@@ -67,6 +71,10 @@ impl SpanState {
         }
     }
 
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (u32, &mut SpanData)> {
+        self.spans.iter_mut().map(|(k, v)| (*k, v))
+    }
+
     pub fn get_data(&self, id: u32) -> Option<&SpanData> {
         self.spans.get(&id)
     }
@@ -89,7 +97,11 @@ impl SpanState {
             id,
             SpanData {
                 metadata,
+                min: Duration::MAX,
+                max: Duration::ZERO,
+                average: Duration::ZERO,
                 last_instance: None,
+                run_count: 0,
                 instances: HashMap::new(),
             },
         );
@@ -109,9 +121,19 @@ impl SpanState {
     }
 
     pub fn free_instance(&mut self, span: &nt::SpanId) -> Option<SpanInstance> {
-        self.spans
-            .get_mut(&span.id)?
-            .instances
-            .remove(&span.instance)
+        if let Some(data) = self.spans.get_mut(&span.id) {
+            if let Some(instance) = data.instances.remove(&span.instance) {
+                if instance.duration > data.max {
+                    data.max = instance.duration;
+                }
+                if instance.duration < data.min {
+                    data.min = instance.duration;
+                }
+                data.average += instance.duration;
+                data.run_count += 1;
+                return Some(instance);
+            }
+        }
+        None
     }
 }
