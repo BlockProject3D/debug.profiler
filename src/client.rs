@@ -26,8 +26,6 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::net::SocketAddr;
-
 use std::io::Result;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
@@ -38,10 +36,18 @@ use tokio::{
 
 use crate::session::Session;
 use crate::{network_types as nt, session::Config};
+use crate::util::{broker_line, Level};
 
-pub type ClientTaskResult = JoinHandle<(usize, Result<()>)>;
+pub type ClientTaskResult = JoinHandle<Result<()>>;
 
 const DEFAULT_NET_BUFFER_SIZE: usize = 1024;
+
+async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<()>) -> Result<TcpStream> {
+    tokio::select! {
+        res = TcpStream::connect(&connection_string) => res,
+        _ = stop_signal => Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Connection aborted"))
+    }
+}
 
 pub struct Client {
     stop_signal: Sender<()>,
@@ -49,15 +55,13 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(stream: TcpStream, addr: SocketAddr, index: usize) -> (Client, ClientTaskResult) {
-        let (stop_signal, receiver) = channel();
-        println!(
-            "Client at address '{}' has been assigned index {}",
-            addr, index
-        );
+    pub fn new(connection_string: String, index: usize) -> (Client, ClientTaskResult) {
+        let (stop_signal, mut receiver) = channel();
+        broker_line(Level::Info, None, format!("Assigned index {} to application {}", index, connection_string));
         let task = tokio::spawn(async move {
+            let stream = handle_connection(&connection_string, &mut receiver).await?;
             let mut task = ClientTask::new(stream, index);
-            (index, task.run(receiver).await)
+            task.run(receiver).await
         });
         (Client { stop_signal, index }, task)
     }

@@ -28,12 +28,12 @@
 
 use std::io::Result;
 use tokio::{
-    net::TcpStream,
     sync::mpsc::{channel, Receiver, Sender},
     task::JoinHandle,
 };
 
 use crate::client_manager::{ClientManager, JoinResult};
+use crate::util::{broker_line, Level};
 
 const DEFAULT_PORT: u16 = 4026;
 const COMMAND_CHAN_SIZE: usize = 4;
@@ -92,18 +92,16 @@ impl ServerTask {
         }
     }
 
-    fn handle_client_stop(&mut self, res: JoinResult<(usize, Result<()>)>) {
+    fn handle_client_stop(&mut self, index: usize, res: JoinResult<Result<()>>) {
+        self.manager.remove(index);
         match res {
-            Ok((index, res)) => {
-                self.manager.remove(index);
+            Ok(res) => {
                 match res {
-                    Ok(_) => println!("Client with index {} has disconnected", index),
-                    Err(e) => eprintln!("Client with index {} has errored: {}", index, e),
+                    Ok(_) => broker_line(Level::Info, index, "Client has disconnected"),
+                    Err(e) => broker_line(Level::Error, index, format!("Client has errored: {}", e)),
                 }
             }
-            Err(e) => {
-                eprintln!("A client has panicked: {}", e);
-            }
+            Err(e) => broker_line(Level::Error, index, format!("Client has panicked: {}", e))
         }
     }
 
@@ -114,15 +112,7 @@ impl ServerTask {
                 if !v.contains(':') {
                     v += &format!(":{}", DEFAULT_PORT);
                 }
-                let stream = match TcpStream::connect(&v).await {
-                    Err(e) => {
-                        eprintln!("Failed to connect to application at {}: {}", v, e);
-                        return Ok(false);
-                    }
-                    Ok(v) => v,
-                };
-                let addr = stream.peer_addr()?;
-                self.manager.add(stream, addr);
+                self.manager.add(v);
                 Ok(false)
             }
         }
@@ -139,8 +129,8 @@ impl ServerTask {
                         }
                     }
                 },
-                res = self.manager.get_client_stop() => {
-                    self.handle_client_stop(res);
+                (index, res) = self.manager.get_client_stop() => {
+                    self.handle_client_stop(index, res);
                 }
             }
         }

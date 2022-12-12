@@ -34,13 +34,38 @@ use futures::{
 use std::{
     future::Future,
     io::Result,
-    net::SocketAddr,
     pin::Pin,
     task::{Context, Poll},
 };
-use tokio::{net::TcpStream, task::JoinError};
+use tokio::task::JoinError;
 
 pub type JoinResult<T> = std::result::Result<T, JoinError>;
+
+struct DataHack<T: Clone, F: Future> {
+    user_data: T,
+    future: F
+}
+
+impl<T: Clone, F: Future> DataHack<T, F> {
+    pub fn new(user_data: T, future: F) -> DataHack<T, F> {
+        DataHack { user_data, future }
+    }
+}
+
+impl<T: Clone, F: Future> Future for DataHack<T, F> {
+    type Output = (T, F::Output);
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        unsafe {
+            let raw = self.get_unchecked_mut();
+            let pin = Pin::new_unchecked(&mut raw.future);
+            match pin.poll(cx) {
+                Poll::Ready(v) => Poll::Ready((raw.user_data.clone(), v)),
+                Poll::Pending => Poll::Pending
+            }
+        }
+    }
+}
 
 struct TaskList<'a, T: Future>(Next<'a, FuturesUnordered<T>>);
 
@@ -62,7 +87,7 @@ impl<'a, T: Future> Future for TaskList<'a, T> {
 
 pub struct ClientManager {
     clients: Vec<Client>,
-    tasks: FuturesUnordered<ClientTaskResult>,
+    tasks: FuturesUnordered<DataHack<usize, ClientTaskResult>>,
     cur_index: usize,
 }
 
@@ -75,14 +100,14 @@ impl ClientManager {
         }
     }
 
-    pub fn add(&mut self, stream: TcpStream, addr: SocketAddr) {
-        let (client, task) = Client::new(stream, addr, self.cur_index);
+    pub fn add(&mut self, connection_string: String) {
+        let (client, task) = Client::new(connection_string, self.cur_index);
         self.cur_index += 1;
+        self.tasks.push(DataHack::new(client.index(), task));
         self.clients.push(client);
-        self.tasks.push(task);
     }
 
-    pub async fn get_client_stop(&mut self) -> JoinResult<(usize, Result<()>)> {
+    pub async fn get_client_stop(&mut self) -> (usize, JoinResult<Result<()>>) {
         TaskList(self.tasks.next()).await
     }
 
