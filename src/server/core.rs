@@ -33,16 +33,11 @@ use tokio::{
 };
 
 use crate::server::client_manager::{ClientManager, JoinResult};
+use crate::server::command::CommandResult;
+use super::command::{Command, CommandHandler};
 use crate::util::{broker_line, Level};
 
-const DEFAULT_PORT: u16 = 4026;
 const COMMAND_CHAN_SIZE: usize = 4;
-
-#[derive(Debug)]
-pub enum Command {
-    Stop,
-    Connect(String),
-}
 
 pub struct Server {
     command_sender: Sender<Command>,
@@ -82,6 +77,7 @@ impl Server {
 struct ServerTask {
     manager: ClientManager,
     command_receiver: Receiver<Command>,
+    command_handler: CommandHandler
 }
 
 impl ServerTask {
@@ -89,6 +85,7 @@ impl ServerTask {
         ServerTask {
             manager: ClientManager::new(),
             command_receiver,
+            command_handler: CommandHandler::new()
         }
     }
 
@@ -105,27 +102,15 @@ impl ServerTask {
         }
     }
 
-    async fn handle_command(&mut self, cmd: Command) -> Result<bool> {
-        match cmd {
-            Command::Stop => Ok(true),
-            Command::Connect(mut v) => {
-                if !v.contains(':') {
-                    v += &format!(":{}", DEFAULT_PORT);
-                }
-                self.manager.add(v);
-                Ok(false)
-            }
-        }
-    }
-
     pub async fn run(&mut self) -> Result<()> {
         loop {
             tokio::select! {
                 res = self.command_receiver.recv() => {
                     if let Some(cmd) = res {
-                        let flag = self.handle_command(cmd).await?;
-                        if flag {
-                            break;
+                        match self.command_handler.handle_command(&mut self.manager, cmd).await {
+                            CommandResult::Terminate => break,
+                            CommandResult::Continue => (),
+                            CommandResult::Error(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err))
                         }
                     }
                 },

@@ -26,11 +26,46 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod core;
-mod client;
-mod client_manager;
-mod command;
+use std::error::Error;
+use crate::server::client_manager::ClientManager;
+use super::DEFAULT_PORT;
 
-pub const DEFAULT_PORT: u16 = 4026;
+#[derive(Debug)]
+pub enum Command {
+    Stop,
+    Connect(String),
+}
 
-pub use self::core::Server;
+pub enum CommandResult {
+    Continue,
+    Terminate,
+    Error(String)
+}
+
+impl<T: Error> From<T> for CommandResult {
+    fn from(e: T) -> Self {
+        CommandResult::Error(e.to_string())
+    }
+}
+
+pub struct CommandHandler {
+}
+
+impl CommandHandler {
+    pub fn new() -> CommandHandler {
+        CommandHandler {}
+    }
+
+    pub async fn handle_command(&mut self, clients: &mut ClientManager, cmd: Command) -> CommandResult {
+        match cmd {
+            Command::Stop => CommandResult::Terminate,
+            Command::Connect(mut v) => {
+                if !v.contains(':') {
+                    v += &format!(":{}", DEFAULT_PORT);
+                }
+                clients.add(v);
+                CommandResult::Continue
+            }
+        }
+    }
+}
