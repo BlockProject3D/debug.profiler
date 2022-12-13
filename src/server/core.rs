@@ -33,7 +33,7 @@ use tokio::{
 };
 
 use crate::server::client_manager::{ClientManager, JoinResult};
-use crate::server::command::CommandResult;
+use crate::server::command::Event;
 use super::command::{Command, CommandHandler};
 use crate::util::{broker_line, Level};
 
@@ -108,9 +108,12 @@ impl ServerTask {
                 res = self.command_receiver.recv() => {
                     if let Some(cmd) = res {
                         match self.command_handler.handle_command(&mut self.manager, cmd).await {
-                            CommandResult::Terminate => break,
-                            CommandResult::Continue => (),
-                            CommandResult::Error(err) => return Err(std::io::Error::new(std::io::ErrorKind::Other, err))
+                            Ok(v) => {
+                                if v == Event::Terminate {
+                                    break;
+                                }
+                            }
+                            Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.as_ref()))
                         }
                     }
                 },

@@ -26,25 +26,34 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::error::Error;
+use std::fmt::Display;
 use crate::server::client_manager::ClientManager;
 use super::DEFAULT_PORT;
 
 #[derive(Debug)]
 pub enum Command {
     Stop,
-    Connect(String),
+    Connect(String)
 }
 
-pub enum CommandResult {
+#[derive(Eq, PartialEq)]
+pub enum Event {
     Continue,
     Terminate,
-    Error(String)
 }
 
-impl<T: Error> From<T> for CommandResult {
+#[derive(Debug)]
+pub struct Error(String);
+
+impl AsRef<str> for Error {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl<T: Display> From<T> for Error {
     fn from(e: T) -> Self {
-        CommandResult::Error(e.to_string())
+        Error(e.to_string())
     }
 }
 
@@ -56,15 +65,15 @@ impl CommandHandler {
         CommandHandler {}
     }
 
-    pub async fn handle_command(&mut self, clients: &mut ClientManager, cmd: Command) -> CommandResult {
+    pub async fn handle_command(&mut self, clients: &mut ClientManager, cmd: Command) -> Result<Event, Error> {
         match cmd {
-            Command::Stop => CommandResult::Terminate,
+            Command::Stop => Ok(Event::Terminate),
             Command::Connect(mut v) => {
                 if !v.contains(':') {
                     v += &format!(":{}", DEFAULT_PORT);
                 }
                 clients.add(v);
-                CommandResult::Continue
+                Ok(Event::Continue)
             }
         }
     }
