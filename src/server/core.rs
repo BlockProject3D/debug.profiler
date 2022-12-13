@@ -113,7 +113,7 @@ impl ServerTask {
                                     break;
                                 }
                             }
-                            Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.as_ref()))
+                            Err(e) => broker_line(Level::Error, None, e.as_ref())
                         }
                     }
                 },
