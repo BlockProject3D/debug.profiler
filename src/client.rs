@@ -57,9 +57,10 @@ pub struct Client {
 impl Client {
     pub fn new(connection_string: String, index: usize) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
-        broker_line(Level::Info, None, format!("Assigned index {} to application {}", index, connection_string));
+        broker_line(Level::Info, index, format!("Connecting with {}...", connection_string));
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
+            broker_line(Level::Info, index, format!("Connected to {}", connection_string));
             let mut task = ClientTask::new(stream, index);
             task.run(receiver).await
         });
