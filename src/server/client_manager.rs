@@ -115,8 +115,12 @@ impl ClientManager {
         self.clients.retain(|v| v.index() != index)
     }
 
+    pub fn get(&mut self, index: usize) -> Option<&mut Client> {
+        self.clients.iter_mut().find(|v| v.index() == index)
+    }
+
     pub async fn stop(mut self) {
-        for v in self.clients {
+        for mut v in self.clients {
             v.stop();
         }
         while let Some(_) = self.tasks.next().await {}

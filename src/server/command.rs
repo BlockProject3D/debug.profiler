@@ -33,7 +33,8 @@ use super::DEFAULT_PORT;
 #[derive(Debug)]
 pub enum Command {
     Stop,
-    Connect(String)
+    Connect(String),
+    Kick(usize)
 }
 
 #[derive(Eq, PartialEq)]
@@ -73,6 +74,11 @@ impl CommandHandler {
                     v += &format!(":{}", DEFAULT_PORT);
                 }
                 clients.add(v);
+                Ok(Event::Continue)
+            }
+            Command::Kick(client) => {
+                let client = clients.get(client).ok_or("Client does not exist")?;
+                client.stop();
                 Ok(Event::Continue)
             }
         }

@@ -50,7 +50,7 @@ async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<(
 }
 
 pub struct Client {
-    stop_signal: Sender<()>,
+    stop_signal: Option<Sender<()>>,
     index: usize,
 }
 
@@ -64,15 +64,15 @@ impl Client {
             let mut task = ClientTask::new(stream, index);
             task.run(receiver).await
         });
-        (Client { stop_signal, index }, task)
+        (Client { stop_signal: Some(stop_signal), index }, task)
     }
 
     pub fn index(&self) -> usize {
         self.index
     }
 
-    pub fn stop(self) {
-        self.stop_signal.send(()).unwrap();
+    pub fn stop(&mut self) {
+        self.stop_signal.take().map(|v| v.send(()).unwrap());
     }
 }
 
