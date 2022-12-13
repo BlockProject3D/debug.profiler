@@ -59,9 +59,9 @@ impl Server {
         })
     }
 
-    pub async fn connect(&mut self, ip: &str) {
+    pub async fn send(&mut self, cmd: Command) {
         self.command_sender
-            .send(Command::Connect(ip.into()))
+            .send(cmd)
             .await
             .unwrap()
     }

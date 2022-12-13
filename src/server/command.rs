@@ -27,10 +27,11 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::fmt::Display;
+use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
 use super::DEFAULT_PORT;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize)]
 pub enum Command {
     Stop,
     Connect(String),

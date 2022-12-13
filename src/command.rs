@@ -26,25 +26,26 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::{Display, Formatter};
+use serde::Deserialize;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use crate::command_deserializer::CommandDeserializer;
+use crate::server::{Command, Server};
+use crate::util::{broker_line, Level};
 
-pub enum Level {
-    Info,
-    Error
-}
+type Result<T> = std::io::Result<T>;
 
-impl Display for Level {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Level::Info => f.write_str("I"),
-            Level::Error => f.write_str("E")
+pub async fn command_loop(server: &mut Server) -> Result<()> {
+    let mut buffer = BufReader::new(tokio::io::stdin()).lines();
+    while let Some(line) = buffer.next_line().await? {
+        let args = line.split(" ");
+        let mut parser = CommandDeserializer::new(args);
+        match Command::deserialize(&mut parser) {
+            Ok(v) => match v {
+                Command::Stop => break,
+                _ => server.send(v).await
+            },
+            Err(e) => broker_line(Level::Error, None, e)
         }
     }
-}
-
-pub fn broker_line<C: Into<Option<usize>>, T: Display>(level: Level, client: C, msg: T) {
-    match client.into() {
-        Some(index) => println!("{} {}: {}", level, index, msg),
-        None => println!("{} N: {}", level, msg)
-    }
+    Ok(())
 }

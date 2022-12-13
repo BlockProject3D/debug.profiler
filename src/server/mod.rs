@@ -34,3 +34,4 @@ mod command;
 pub const DEFAULT_PORT: u16 = 4026;
 
 pub use self::core::Server;
+pub use command::Command;
