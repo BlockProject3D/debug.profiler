@@ -29,13 +29,15 @@
 use std::fmt::Display;
 use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
+use crate::util::{broker_line, Level};
 use super::DEFAULT_PORT;
 
 #[derive(Debug, Deserialize)]
 pub enum Command {
     Stop,
     Connect(String),
-    Kick(usize)
+    Kick(usize),
+    List
 }
 
 #[derive(Eq, PartialEq)]
@@ -80,6 +82,12 @@ impl CommandHandler {
             Command::Kick(client) => {
                 let client = clients.get(client).ok_or("Client does not exist")?;
                 client.stop();
+                Ok(Event::Continue)
+            }
+            Command::List => {
+                for v in clients.iter() {
+                    broker_line(Level::Info, v.index(), v.connection_string());
+                }
                 Ok(Event::Continue)
             }
         }

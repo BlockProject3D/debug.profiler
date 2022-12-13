@@ -119,6 +119,10 @@ impl ClientManager {
         self.clients.iter_mut().find(|v| v.index() == index)
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &Client> {
+        self.clients.iter()
+    }
+
     pub async fn stop(mut self) {
         for mut v in self.clients {
             v.stop();

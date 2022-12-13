@@ -52,19 +52,25 @@ async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<(
 pub struct Client {
     stop_signal: Option<Sender<()>>,
     index: usize,
+    connection_string: String
 }
 
 impl Client {
     pub fn new(connection_string: String, index: usize) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
         broker_line(Level::Info, index, format!("Connecting with {}...", connection_string));
+        let motherfuckingrust = connection_string.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
             broker_line(Level::Info, index, format!("Connected to {}", connection_string));
             let mut task = ClientTask::new(stream, index);
             task.run(receiver).await
         });
-        (Client { stop_signal: Some(stop_signal), index }, task)
+        (Client { stop_signal: Some(stop_signal), index, connection_string: motherfuckingrust }, task)
+    }
+
+    pub fn connection_string(&self) -> &str {
+        &self.connection_string
     }
 
     pub fn index(&self) -> usize {
