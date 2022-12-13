@@ -32,7 +32,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::client_manager::{ClientManager, JoinResult};
+use crate::server::client_manager::{ClientManager, JoinResult};
 use crate::util::{broker_line, Level};
 
 const DEFAULT_PORT: u16 = 4026;
