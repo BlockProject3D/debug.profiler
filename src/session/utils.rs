@@ -27,7 +27,6 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use crate::network_types as nt;
-use crate::util::csv_format_single;
 
 #[derive(Clone)]
 pub struct ValueSet {
@@ -74,7 +73,19 @@ impl Extend<(String, nt::Value)> for ValueSet {
 
 pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
     cols.into_iter()
-        .map(|v| csv_format_single(v, ','))
+        .map(|v| {
+            let flag = v.contains(',');
+            if v.contains('"') || flag {
+                let s = v.replace('"', "\"\"");
+                if flag {
+                    format!("\"{}\"", s)
+                } else {
+                    s
+                }
+            } else {
+                v.into()
+            }
+        })
         .collect::<Vec<String>>()
         .join(",")
 }
