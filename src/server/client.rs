@@ -26,9 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::HashMap;
 use std::io::Result;
-use std::sync::{Arc, Mutex};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -38,7 +36,6 @@ use tokio::{
 
 use crate::session::Session;
 use crate::{network_types as nt, session::Config};
-use crate::server::SpanStore;
 use crate::util::{broker_line, Level};
 
 pub type ClientTaskResult = JoinHandle<Result<()>>;
@@ -55,8 +52,7 @@ async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<(
 pub struct Client {
     stop_signal: Option<Sender<()>>,
     index: usize,
-    connection_string: String,
-    spans: SpanStore
+    connection_string: String
 }
 
 impl Client {
@@ -64,24 +60,13 @@ impl Client {
         let (stop_signal, mut receiver) = channel();
         broker_line(Level::Info, index, format!("Connecting with {}...", connection_string));
         let motherfuckingrust = connection_string.clone();
-        let spans = SpanStore::new();
-        let motherfuckingrust1 = spans.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
             broker_line(Level::Info, index, format!("Connected to {}", connection_string));
-            let mut task = ClientTask::new(stream, index, motherfuckingrust1);
+            let mut task = ClientTask::new(stream, index);
             task.run(receiver).await
         });
-        (Client {
-            spans,
-            stop_signal: Some(stop_signal),
-            index,
-            connection_string: motherfuckingrust
-        }, task)
-    }
-
-    pub fn spans(&self) -> &SpanStore {
-        &self.spans
+        (Client { stop_signal: Some(stop_signal), index, connection_string: motherfuckingrust }, task)
     }
 
     pub fn connection_string(&self) -> &str {
@@ -102,17 +87,15 @@ struct ClientTask {
     session: Option<Session>,
     client_index: usize,
     net_buffer: Vec<u8>,
-    spans: SpanStore
 }
 
 impl ClientTask {
-    pub fn new(stream: TcpStream, client_index: usize, spans: SpanStore) -> ClientTask {
+    pub fn new(stream: TcpStream, client_index: usize) -> ClientTask {
         ClientTask {
             stream: BufReader::new(stream),
             session: None,
             client_index,
             net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE],
-            spans
         }
     }
 
@@ -138,7 +121,7 @@ impl ClientTask {
                     Ok(v) => v,
                     Err(e) => return Self::kick(&e.to_string()),
                 };
-                v.handle_command(cmd, &self.spans).await?;
+                v.handle_command(cmd).await?;
                 Ok(())
             }
             None => {

@@ -14,7 +14,6 @@ time-tz = { version = "0.5.2", features = ["system"] }
 #druid-widget-nursery = { path = "./druid-widget-nursery" }
 crossbeam-channel = "0.5.4"
 bp3d-fs = "1.1.0"
-bp3d-threads = { version = "2.0.0-pre.1.0.0", features = ["atomic-cell"] }
 bpx = { version = "4.0.0-beta-7.2.2", features = ["sd", "serde"] }
 byteorder = "1.4.3"
 async-trait = "0.1.53"

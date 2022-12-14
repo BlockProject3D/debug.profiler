@@ -30,11 +30,8 @@ mod core;
 mod client;
 mod client_manager;
 mod command;
-mod db;
 
 pub const DEFAULT_PORT: u16 = 4026;
 
 pub use self::core::Server;
 pub use command::Command;
-pub use db::SpanStore;
-pub use db::SpanSnapshot;

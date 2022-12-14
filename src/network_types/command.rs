@@ -55,21 +55,6 @@ pub struct Duration {
     pub nano_seconds: u32
 }
 
-impl From<std::time::Duration> for Duration {
-    fn from(d: std::time::Duration) -> Self {
-        Self {
-            seconds: d.as_secs() as _,
-            nano_seconds: d.subsec_nanos()
-        }
-    }
-}
-
-impl From<Duration> for std::time::Duration {
-    fn from(d: Duration) -> Self {
-        Self::new(d.seconds as _, d.nano_seconds)
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub enum Command {
     Project {

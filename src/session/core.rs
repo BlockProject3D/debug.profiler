@@ -37,7 +37,6 @@ use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::network_types as nt;
-use crate::server::SpanStore;
 
 use super::fd_map::FdMap;
 use super::paths::{Directory, Paths};
@@ -70,7 +69,7 @@ impl Session {
         })
     }
 
-    pub async fn handle_command(&mut self, cmd: nt::Command, spans: &SpanStore) -> Result<()> {
+    pub async fn handle_command(&mut self, cmd: nt::Command) -> Result<()> {
         match cmd {
             nt::Command::SpanAlloc { id, metadata } => {
                 let out = self
@@ -99,8 +98,8 @@ impl Session {
                 out.write_all(opt_mpath.as_bytes()).await?;
                 self.tree
                     .add_node(tree::Span::with_metadata(id.id, metadata.clone()));
-                self.spans.alloc_span(id.id, metadata.clone(), spans.alloc_span(id.id, metadata));
-                //TODO: Synchronize tree with GUI sessions
+                self.spans.alloc_span(id.id, metadata);
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanInit {
                 span,
@@ -120,13 +119,13 @@ impl Session {
                 if let Some(parent) = parent {
                     self.tree.relocate_node(span.id, parent.id);
                 }
-                //TODO: Synchronize tree with GUI sessions
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanFollows { span, follows } => {
                 if let Some(parent) = self.tree.find_parent(follows.id) {
                     self.tree.relocate_node(span.id, parent);
                 }
-                //TODO: Synchronize tree with GUI sessions
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanValues {
                 span,
@@ -139,6 +138,7 @@ impl Session {
                     }
                     span.value_set.extend(value_set);
                 }
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::Event {
                 span,
@@ -192,18 +192,15 @@ impl Session {
             nt::Command::SpanEnter(id) => {
                 if let Some(span) = self.spans.get_instance_mut(&id) {
                     span.active = true;
-                    self.spans.get_data(id.id).unwrap().snapshot.is_active.set(true);
                 }
-                //TODO: Synchronize tree with GUI sessions
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanExit { span, duration } => {
                 if let Some(data) = self.spans.get_instance_mut(&span) {
                     data.active = false;
-                    data.duration = duration.into();
-                    let span = self.spans.get_data(span.id).unwrap();
-                    span.snapshot.is_active.set(span.is_active());
+                    data.duration = Duration::new(duration.seconds.into(), duration.nano_seconds);
                 }
-                //TODO: Synchronize tree with GUI sessions
+                //TODO: Synchronize span data and tree with GUI sessions
             }
             nt::Command::SpanFree(id) => {
                 if let Some(mut data) = self.spans.free_instance(&id) {
@@ -236,15 +233,8 @@ impl Session {
                             .as_bytes(),
                     )
                     .await?;
-                    let span = self.spans.get_data(id.id).unwrap();
-                    span.snapshot.is_active.set(span.is_active());
-                    span.snapshot.is_dropped.set(span.is_dropped());
-                    span.snapshot.min.set(span.min.into());
-                    span.snapshot.max.set(span.max.into());
-                    span.snapshot.run_count.set(span.run_count);
-                    span.snapshot.average.set((span.average / span.run_count as u32).into());
                 }
-                //TODO: Synchronize tree with GUI sessions
+                //TODO: Synchronize span data and tree with GUI sessions
             },
             nt::Command::Terminate => {
                 let file = File::create(self.paths.get_root().join("times.csv")).await?;
@@ -270,6 +260,7 @@ impl Session {
                 self.tree.write(&mut buffer).await?;
                 buffer.flush().await?;
                 self.fd_map.flush().await?;
+                //TODO: Synchronize with GUI sessions
             },
             nt::Command::Project { app_name, name, version, target, command_line, cpu } => {
                 let file = File::create(self.paths.get_root().join("info.csv")).await?;

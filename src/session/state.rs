@@ -30,7 +30,6 @@ use std::{collections::HashMap, sync::Arc};
 use std::time::Duration;
 
 use crate::network_types as nt;
-use crate::server::SpanSnapshot;
 
 use super::utils::ValueSet;
 
@@ -48,7 +47,6 @@ pub struct SpanData {
     pub max: Duration,
     pub average: Duration,
     pub run_count: usize,
-    pub snapshot: Arc<SpanSnapshot>,
     instances: HashMap<u32, SpanInstance>,
 }
 
@@ -60,18 +58,6 @@ impl SpanData {
     pub fn is_active(&self) -> bool {
         self.instances.iter().any(|(_, v)| v.active)
     }
-
-    /*pub fn snapshot(&self) -> SpanSnapshot {
-        SpanSnapshot {
-            metadata: self.metadata.clone(),
-            min: self.min.into(),
-            max: self.max.into(),
-            average: (self.average / self.run_count as u32).into(),
-            run_count: self.run_count,
-            is_active: self.is_active(),
-            is_dropped: self.is_dropped()
-        }
-    }*/
 }
 
 pub struct SpanState {
@@ -106,7 +92,7 @@ impl SpanState {
         self.spans.get(&span.id)?.instances.get(&span.instance)
     }
 
-    pub fn alloc_span(&mut self, id: u32, metadata: Arc<nt::Metadata>, snapshot: Arc<SpanSnapshot>) {
+    pub fn alloc_span(&mut self, id: u32, metadata: Arc<nt::Metadata>) {
         self.spans.insert(
             id,
             SpanData {
@@ -117,7 +103,6 @@ impl SpanState {
                 last_instance: None,
                 run_count: 0,
                 instances: HashMap::new(),
-                snapshot
             },
         );
     }
