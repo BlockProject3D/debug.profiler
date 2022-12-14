@@ -30,7 +30,7 @@ use std::fmt::Display;
 use std::time::Duration;
 use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, csv_format_single, Level};
 use super::DEFAULT_PORT;
 
 #[derive(Debug, Deserialize)]
@@ -39,7 +39,8 @@ pub enum Command {
     Connect(String),
     Kick(usize),
     List,
-    Spans(usize)
+    Spans(usize),
+    Metadata(usize)
 }
 
 #[derive(Eq, PartialEq)]
@@ -80,7 +81,7 @@ fn duration_to_string(d: &Duration) -> String {
     } else if d.subsec_millis() > 0 {
         format!("{}ms", d.as_millis())
     } else {
-        format!("{}us", d.as_micros())
+        format!("{}µs", d.as_micros())
     }
 }
 
@@ -128,6 +129,25 @@ impl CommandHandler {
                                         duration_to_string(&max),
                                         duration_to_string(&average),
                                         v.run_count.get()
+                                ));
+                }
+                Ok(Event::Continue)
+            },
+            Command::Metadata(client1) => {
+                let client = clients.get(client1).ok_or("Client does not exist")?;
+                for v in client.spans().get_iter() {
+                    let file = v.metadata.file.as_deref().unwrap_or("None");
+                    let line = v.metadata.line.map(|v| v.to_string()).unwrap_or("None".into());
+                    let module = v.metadata.module_path.as_deref().unwrap_or("None");
+                    broker_line(Level::Info, client1,
+                                format!("{} {} {} {} {} {} {}",
+                                    v.id,
+                                    csv_format_single(&v.metadata.name, ' '),
+                                    v.metadata.level,
+                                    csv_format_single(&v.metadata.target, ' '),
+                                    csv_format_single(module, ' '),
+                                    csv_format_single(file, ' '),
+                                    line
                                 ));
                 }
                 Ok(Event::Continue)

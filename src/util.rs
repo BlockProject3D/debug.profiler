@@ -48,3 +48,18 @@ pub fn broker_line<C: Into<Option<usize>>, T: Display>(level: Level, client: C, 
         None => println!("{} N: {}", level, msg)
     }
 }
+
+pub fn csv_format_single<T: ToString>(value: T, delim: char) -> String {
+    let value = value.to_string();
+    let flag = value.contains(delim);
+    if value.contains('"') || flag {
+        let s = value.replace('"', "\"\"");
+        if flag {
+            format!("\"{}\"", s)
+        } else {
+            s
+        }
+    } else {
+        value
+    }
+}
