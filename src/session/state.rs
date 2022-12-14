@@ -60,18 +60,6 @@ impl SpanData {
     pub fn is_active(&self) -> bool {
         self.instances.iter().any(|(_, v)| v.active)
     }
-
-    /*pub fn snapshot(&self) -> SpanSnapshot {
-        SpanSnapshot {
-            metadata: self.metadata.clone(),
-            min: self.min.into(),
-            max: self.max.into(),
-            average: (self.average / self.run_count as u32).into(),
-            run_count: self.run_count,
-            is_active: self.is_active(),
-            is_dropped: self.is_dropped()
-        }
-    }*/
 }
 
 pub struct SpanState {
