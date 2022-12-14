@@ -26,9 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::collections::HashMap;
 use std::io::Result;
-use std::sync::{Arc, Mutex};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
@@ -80,8 +78,8 @@ impl Client {
         }, task)
     }
 
-    pub fn spans(&self) -> &SpanStore {
-        &self.spans
+    pub fn spans(&mut self) -> &mut SpanStore {
+        &mut self.spans
     }
 
     pub fn connection_string(&self) -> &str {

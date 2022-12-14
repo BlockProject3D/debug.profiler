@@ -27,6 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::fmt::Display;
+use std::time::Duration;
 use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
 use crate::util::{broker_line, Level};
@@ -37,7 +38,8 @@ pub enum Command {
     Stop,
     Connect(String),
     Kick(usize),
-    List
+    List,
+    Spans(usize)
 }
 
 #[derive(Eq, PartialEq)]
@@ -61,6 +63,27 @@ impl<T: Display> From<T> for Error {
     }
 }
 
+// Annoyingly long to write the same kind of minimalistic if block so hijack ternaries in Rust.
+macro_rules! ter {
+    (($value: expr) ? ($yes: expr) : ($no: expr) ) => {
+        if $value {
+            $yes
+        } else {
+            $no
+        }
+    };
+}
+
+fn duration_to_string(d: &Duration) -> String {
+    if d.as_secs() > 0 {
+        format!("{}s", d.as_secs_f64())
+    } else if d.subsec_millis() > 0 {
+        format!("{}ms", d.as_millis())
+    } else {
+        format!("{}us", d.as_micros())
+    }
+}
+
 pub struct CommandHandler {
 }
 
@@ -78,15 +101,34 @@ impl CommandHandler {
                 }
                 clients.add(v);
                 Ok(Event::Continue)
-            }
+            },
             Command::Kick(client) => {
                 let client = clients.get(client).ok_or("Client does not exist")?;
                 client.stop();
                 Ok(Event::Continue)
-            }
+            },
             Command::List => {
                 for v in clients.iter() {
                     broker_line(Level::Info, v.index(), v.connection_string());
+                }
+                Ok(Event::Continue)
+            },
+            Command::Spans(client1) => {
+                let client = clients.get(client1).ok_or("Client does not exist")?;
+                for v in client.spans().get_iter() {
+                    let dropped = ter!((v.is_dropped.get()) ? ("D") : ("L")); //D = dead, L = live
+                    let active = ter!((v.is_active.get()) ? ("A") : ("I")); //A = active, I = inactive
+                    let min = Duration::from(v.min.get());
+                    let max = Duration::from(v.max.get());
+                    let average = Duration::from(v.average.get());
+                    broker_line(Level::Info, client1,
+                                format!("{} {} {} {} {} {} {}",
+                                        v.id, dropped, active,
+                                        duration_to_string(&min),
+                                        duration_to_string(&max),
+                                        duration_to_string(&average),
+                                        v.run_count.get()
+                                ));
                 }
                 Ok(Event::Continue)
             }
