@@ -61,7 +61,6 @@ impl Atomic for nt::Duration {
 
 #[derive(Clone)]
 pub struct SpanSnapshot {
-    pub id: u32,
     pub metadata: Arc<nt::Metadata>,
     pub min: AtomicCell<nt::Duration>,
     pub max: AtomicCell<nt::Duration>,
@@ -72,41 +71,28 @@ pub struct SpanSnapshot {
 }
 
 struct Inner {
-    snapshots: Mutex<HashMap<u32, Arc<SpanSnapshot>>>,
-    size: AtomicCell<usize>,
+    snapshots: HashMap<u32, Arc<SpanSnapshot>>,
     list: Vec<String>
 }
 
+#[derive(Clone)]
 pub struct SpanStore {
-    inner: Arc<Inner>,
-    fast_get: Option<Vec<Arc<SpanSnapshot>>>
-}
-
-impl Clone for SpanStore {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-            fast_get: None
-        }
-    }
+    inner: Arc<Mutex<Inner>>
 }
 
 impl SpanStore {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Inner {
-                snapshots: Mutex::new(HashMap::new()),
-                list: Vec::new(),
-                size: AtomicCell::new(0)
-            }),
-            fast_get: None
+            inner: Arc::new(Mutex::new(Inner {
+                snapshots: HashMap::new(),
+                list: Vec::new()
+            }))
         }
     }
 
     pub fn alloc_span(&self, id: u32, metadata: Arc<nt::Metadata>) -> Arc<SpanSnapshot> {
-        let mut lock = self.inner.snapshots.lock().unwrap();
+        let mut lock = self.inner.lock().unwrap();
         let ptr = Arc::new(SpanSnapshot {
-            id,
             metadata,
             min: AtomicCell::new(Duration::new(0, 0).into()),
             max: AtomicCell::new(Duration::new(0, 0).into()),
@@ -115,18 +101,7 @@ impl SpanStore {
             is_active: AtomicCell::new(false),
             is_dropped: AtomicCell::new(false)
         });
-        lock.insert(id, ptr.clone());
+        lock.snapshots.insert(id, ptr.clone());
         ptr
-    }
-
-    /// Gets an iterator on the list of all spans, this caches the list of SpanSnapshot to avoid
-    /// having uselessly locking the mutex.
-    pub fn get_iter(&mut self) -> impl Iterator<Item = &Arc<SpanSnapshot>> {
-        if self.fast_get.is_none() || self.fast_get.as_ref().map(|v| v.len()).unwrap_or_default() != self.inner.size.get() {
-            let lock = self.inner.snapshots.lock().unwrap();
-            self.fast_get = Some(lock.values().cloned().collect());
-        }
-        //SAFETY: The Option cannot be None at this point because of the previous if block.
-        unsafe { self.fast_get.as_ref().unwrap_unchecked().iter() }
     }
 }
