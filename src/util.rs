@@ -28,23 +28,29 @@
 
 use std::fmt::{Display, Formatter};
 
-pub enum Level {
-    Info,
-    Error
+pub enum Type {
+    LogInfo,
+    LogError,
+    SpanData,
+    SpanAlloc,
+    SpanEvent
 }
 
-impl Display for Level {
+impl Display for Type {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Level::Info => f.write_str("I"),
-            Level::Error => f.write_str("E")
+            Type::LogInfo => f.write_str("I"),
+            Type::LogError => f.write_str("E"),
+            Type::SpanData => f.write_str("D"),
+            Type::SpanAlloc => f.write_str("A"),
+            Type::SpanEvent => f.write_str("S")
         }
     }
 }
 
-pub fn broker_line<C: Into<Option<usize>>, T: Display>(level: Level, client: C, msg: T) {
+pub fn broker_line<C: Into<Option<usize>>, T: Display>(ty: Type, client: C, msg: T) {
     match client.into() {
-        Some(index) => println!("{} {}: {}", level, index, msg),
-        None => println!("{} N: {}", level, msg)
+        Some(index) => println!("{} {}: {}", ty, index, msg),
+        None => println!("{} N: {}", ty, msg)
     }
 }

@@ -47,6 +47,7 @@ pub struct SpanData {
     pub max: Duration,
     pub average: Duration,
     pub run_count: usize,
+    pub last_update: std::time::Instant,
     instances: HashMap<u32, SpanInstance>,
 }
 
@@ -79,6 +80,10 @@ impl SpanState {
         self.spans.get(&id)
     }
 
+    pub fn get_data_mut(&mut self, id: u32) -> Option<&mut SpanData> {
+        self.spans.get_mut(&id)
+    }
+
     pub fn get_any_instance(&self, id: u32) -> Option<&SpanInstance> {
         let span = self.spans.get(&id)?;
         span.instances
@@ -102,6 +107,7 @@ impl SpanState {
                 average: Duration::ZERO,
                 last_instance: None,
                 run_count: 0,
+                last_update: std::time::Instant::now(),
                 instances: HashMap::new(),
             },
         );

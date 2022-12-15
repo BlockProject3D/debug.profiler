@@ -26,7 +26,7 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, Type};
 
 mod network_types;
 mod session;
@@ -40,11 +40,11 @@ async fn run() {
     match server {
         Ok(mut v) => {
             if let Err(e) = command::command_loop(&mut v).await {
-                broker_line(Level::Error, None, format!("Failed to read standard input: {}", e));
+                broker_line(Type::LogError, None, format!("Failed to read standard input: {}", e));
             }
             v.stop().await;
         }
-        Err(e) => broker_line(Level::Error, None, format!("Failed to start server: {}", e)),
+        Err(e) => broker_line(Type::LogError, None, format!("Failed to start server: {}", e)),
     }
 }
 

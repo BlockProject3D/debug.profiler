@@ -71,21 +71,24 @@ impl Extend<(String, nt::Value)> for ValueSet {
     }
 }
 
+pub fn csv_format_single<T: ToString>(value: T, delim: char) -> String {
+    let value = value.to_string();
+    let flag = value.contains(delim);
+    if value.contains('"') || flag {
+        let s = value.replace('"', "\"\"");
+        if flag {
+            format!("\"{}\"", s)
+        } else {
+            s
+        }
+    } else {
+        value
+    }
+}
+
 pub fn csv_format<'a, T: IntoIterator<Item = &'a str>>(cols: T) -> String {
     cols.into_iter()
-        .map(|v| {
-            let flag = v.contains(',');
-            if v.contains('"') || flag {
-                let s = v.replace('"', "\"\"");
-                if flag {
-                    format!("\"{}\"", s)
-                } else {
-                    s
-                }
-            } else {
-                v.into()
-            }
-        })
+        .map(|v| csv_format_single(v, ','))
         .collect::<Vec<String>>()
         .join(",")
 }

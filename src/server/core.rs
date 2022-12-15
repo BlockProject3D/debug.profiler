@@ -35,7 +35,7 @@ use tokio::{
 use crate::server::client_manager::{ClientManager, JoinResult};
 use crate::server::command::Event;
 use super::command::{Command, CommandHandler};
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, Type};
 
 const COMMAND_CHAN_SIZE: usize = 4;
 
@@ -94,11 +94,11 @@ impl ServerTask {
         match res {
             Ok(res) => {
                 match res {
-                    Ok(_) => broker_line(Level::Info, index, "Client has disconnected"),
-                    Err(e) => broker_line(Level::Error, index, format!("Client has errored: {}", e)),
+                    Ok(_) => broker_line(Type::LogInfo, index, "Client has disconnected"),
+                    Err(e) => broker_line(Type::LogError, index, format!("Client has errored: {}", e)),
                 }
             }
-            Err(e) => broker_line(Level::Error, index, format!("Client has panicked: {}", e))
+            Err(e) => broker_line(Type::LogError, index, format!("Client has panicked: {}", e))
         }
     }
 
@@ -113,7 +113,7 @@ impl ServerTask {
                                     break;
                                 }
                             }
-                            Err(e) => broker_line(Level::Error, None, e.as_ref())
+                            Err(e) => broker_line(Type::LogError, None, e.as_ref())
                         }
                     }
                 },

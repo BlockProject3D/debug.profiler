@@ -30,7 +30,7 @@ use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::command_deserializer::CommandDeserializer;
 use crate::server::{Command, Server};
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, Type};
 
 type Result<T> = std::io::Result<T>;
 
@@ -44,7 +44,7 @@ pub async fn command_loop(server: &mut Server) -> Result<()> {
                 Command::Stop => break,
                 _ => server.send(v).await
             },
-            Err(e) => broker_line(Level::Error, None, e)
+            Err(e) => broker_line(Type::LogError, None, e)
         }
     }
     Ok(())

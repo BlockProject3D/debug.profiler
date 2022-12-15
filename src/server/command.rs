@@ -29,7 +29,7 @@
 use std::fmt::Display;
 use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, Type};
 use super::DEFAULT_PORT;
 
 #[derive(Debug, Deserialize)]
@@ -86,7 +86,7 @@ impl CommandHandler {
             }
             Command::List => {
                 for v in clients.iter() {
-                    broker_line(Level::Info, v.index(), v.connection_string());
+                    broker_line(Type::LogInfo, v.index(), v.connection_string());
                 }
                 Ok(Event::Continue)
             }

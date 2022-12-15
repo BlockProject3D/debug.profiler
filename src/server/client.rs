@@ -36,7 +36,7 @@ use tokio::{
 
 use crate::session::Session;
 use crate::{network_types as nt, session::Config};
-use crate::util::{broker_line, Level};
+use crate::util::{broker_line, Type};
 
 pub type ClientTaskResult = JoinHandle<Result<()>>;
 
@@ -58,11 +58,11 @@ pub struct Client {
 impl Client {
     pub fn new(connection_string: String, index: usize) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
-        broker_line(Level::Info, index, format!("Connecting with {}...", connection_string));
+        broker_line(Type::LogInfo, index, format!("Connecting with {}...", connection_string));
         let motherfuckingrust = connection_string.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
-            broker_line(Level::Info, index, format!("Connected to {}", connection_string));
+            broker_line(Type::LogInfo, index, format!("Connected to {}", connection_string));
             let mut task = ClientTask::new(stream, index);
             task.run(receiver).await
         });
@@ -137,6 +137,7 @@ impl ClientTask {
                             Config {
                                 max_fd_count: 2,
                                 inheritance: true,
+                                refresh_interval: 100 //Print data updates every 100ms
                             },
                         )
                         .await?;
