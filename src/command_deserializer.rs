@@ -28,7 +28,8 @@
 
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::Peekable;
-use serde::de::{DeserializeSeed, EnumAccess, SeqAccess, VariantAccess, Visitor};
+use std::str::Split;
+use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
 use serde::Deserializer;
 
 #[derive(Debug)]
@@ -202,12 +203,20 @@ impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de> for &'a mut Comman
         self.deserialize_tuple(len, visitor)
     }
 
-    fn deserialize_map<V>(self, _: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        Err(Error::Unsupported)
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+        visitor.visit_map(Map {
+            de: self,
+            next: None,
+            size: usize::MAX
+        })
     }
 
     fn deserialize_struct<V>(self, _: &'static str, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        self.deserialize_tuple(fields.len(), visitor) //TODO: check if this is supported by serde, not sure
+        visitor.visit_map(Map {
+            de: self,
+            next: None,
+            size: fields.len()
+        })
     }
 
     fn deserialize_enum<V>(self, _: &'static str, _: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
@@ -217,17 +226,53 @@ impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de> for &'a mut Comman
     }
 
     fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        let val = self.args.next().ok_or(Error::UnexpectedEof)?;
-        if val.len() < 1 {
-            Err(Error::UnexpectedEof)
-        } else {
-            visitor.visit_string(val[..1].to_uppercase() + &val[1..])
-        }
+        self.deserialize_str(visitor)
     }
 
     fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
         self.args.next();
         visitor.visit_none()
+    }
+}
+
+struct Map<'a, 'de, T: Iterator<Item = &'de str>> {
+    de: &'a mut CommandDeserializer<'de, T>,
+    next: Option<CommandDeserializer<'de, Split<'de, &'de str>>>,
+    size: usize
+}
+
+impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> Map<'a, 'de, T> {
+    fn get_next(&mut self) -> Option<&mut CommandDeserializer<'de, Split<'de, &'de str>>> {
+        if (self.size == 0 || self.de.args.peek().is_none()) && self.next.is_none() {
+            return None;
+        }
+        if self.next.is_some() {
+            return self.next.as_mut();
+        }
+        let val = self.de.args.next()?;
+        self.next = Some(CommandDeserializer::new(val.split("=")));
+        self.size -= 1;
+        self.next.as_mut()
+    }
+}
+
+impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> MapAccess<'de> for Map<'a, 'de, T> {
+    type Error = Error<'de>;
+
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error> where K: DeserializeSeed<'de> {
+        match self.get_next() {
+            None => Ok(None),
+            Some(v) => {
+                let val = seed.deserialize(v)?;
+                Ok(Some(val))
+            }
+        }
+    }
+
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error> where V: DeserializeSeed<'de> {
+        let val = seed.deserialize(self.get_next().ok_or(Error::UnexpectedEof)?);
+        self.next = None;
+        val
     }
 }
 
@@ -278,6 +323,6 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> VariantAccess<'de> for Enum<'a, 
     }
 
     fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        self.de.deserialize_tuple(fields.len(), visitor)
+        self.de.deserialize_struct("", fields, visitor)
     }
 }
