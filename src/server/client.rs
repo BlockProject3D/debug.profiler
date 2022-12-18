@@ -34,8 +34,8 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::session::Session;
-use crate::{network_types as nt, session::Config};
+use crate::session::{Session, Config};
+use crate::{network_types as nt};
 use crate::util::{broker_line, Type};
 
 pub type ClientTaskResult = JoinHandle<Result<()>>;
@@ -56,14 +56,14 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(connection_string: String, index: usize) -> (Client, ClientTaskResult) {
+    pub fn new(connection_string: String, index: usize, config: Config) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
         broker_line(Type::LogInfo, index, format!("Connecting with {}...", connection_string));
         let motherfuckingrust = connection_string.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
             broker_line(Type::LogInfo, index, format!("Connected to {}", connection_string));
-            let mut task = ClientTask::new(stream, index);
+            let mut task = ClientTask::new(stream, index, config);
             task.run(receiver).await
         });
         (Client { stop_signal: Some(stop_signal), index, connection_string: motherfuckingrust }, task)
@@ -87,15 +87,17 @@ struct ClientTask {
     session: Option<Session>,
     client_index: usize,
     net_buffer: Vec<u8>,
+    config: Config
 }
 
 impl ClientTask {
-    pub fn new(stream: TcpStream, client_index: usize) -> ClientTask {
+    pub fn new(stream: TcpStream, client_index: usize, config: Config) -> ClientTask {
         ClientTask {
             stream: BufReader::new(stream),
             session: None,
             client_index,
             net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE],
+            config
         }
     }
 
@@ -134,11 +136,7 @@ impl ClientTask {
                     nt::MatchResult::Ok => {
                         let session = Session::new(
                             self.client_index,
-                            Config {
-                                max_fd_count: 2,
-                                inheritance: true,
-                                refresh_interval: 100 //Print data updates every 100ms
-                            },
+                            self.config,
                         )
                         .await?;
                         self.session = Some(session);

@@ -38,6 +38,7 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::task::JoinError;
+use crate::session::Config;
 
 pub type JoinResult<T> = std::result::Result<T, JoinError>;
 
@@ -89,6 +90,7 @@ pub struct ClientManager {
     clients: Vec<Client>,
     tasks: FuturesUnordered<DataHack<usize, ClientTaskResult>>,
     cur_index: usize,
+    config: Config
 }
 
 impl ClientManager {
@@ -97,11 +99,12 @@ impl ClientManager {
             clients: Vec::new(),
             tasks: FuturesUnordered::new(),
             cur_index: 0,
+            config: Config::default()
         }
     }
 
     pub fn add(&mut self, connection_string: String) {
-        let (client, task) = Client::new(connection_string, self.cur_index);
+        let (client, task) = Client::new(connection_string, self.cur_index, self.config);
         self.cur_index += 1;
         self.tasks.push(DataHack::new(client.index(), task));
         self.clients.push(client);
@@ -109,6 +112,10 @@ impl ClientManager {
 
     pub async fn get_client_stop(&mut self) -> (usize, JoinResult<Result<()>>) {
         TaskList(self.tasks.next()).await
+    }
+
+    pub fn set_config(&mut self, config: Config) {
+        self.config = config;
     }
 
     pub fn remove(&mut self, index: usize) {

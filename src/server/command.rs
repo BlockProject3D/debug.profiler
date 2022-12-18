@@ -29,15 +29,18 @@
 use std::fmt::Display;
 use serde::Deserialize;
 use crate::server::client_manager::ClientManager;
+use crate::session::Config;
 use crate::util::{broker_line, Type};
 use super::DEFAULT_PORT;
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Command {
     Stop,
     Connect(String),
     Kick(usize),
-    List
+    List,
+    Config(Config)
 }
 
 #[derive(Eq, PartialEq)]
@@ -88,6 +91,10 @@ impl CommandHandler {
                 for v in clients.iter() {
                     broker_line(Type::LogInfo, v.index(), v.connection_string());
                 }
+                Ok(Event::Continue)
+            }
+            Command::Config(cfg) => {
+                clients.set_config(cfg);
                 Ok(Event::Continue)
             }
         }

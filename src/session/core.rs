@@ -29,6 +29,7 @@
 use std::io::Result;
 use std::sync::Arc;
 use std::time::Duration;
+use serde::Deserialize;
 
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -47,11 +48,35 @@ use super::state::{SpanInstance, SpanState};
 use super::tree;
 use super::utils::{csv_format, ValueSet};
 
+const DEFAULT_MAX_FD_COUNT: usize = 2;
+const DEFAULT_REFRESH_INTERVAL: u32 = 500; //500 ms
+
+#[derive(Default, Debug, Copy, Clone, Deserialize)]
 pub struct Config {
+    pub max_fd_count: Option<usize>,
+    pub inheritance: Option<bool>,
+    pub refresh_interval: Option<u32> //Refresh interval in ms
+}
+
+impl Config {
+    pub fn get_max_fd_count(&self) -> usize {
+        self.max_fd_count.unwrap_or(DEFAULT_MAX_FD_COUNT)
+    }
+
+    pub fn has_inheritance(&self) -> bool {
+        self.inheritance.unwrap_or(true)
+    }
+
+    pub fn get_refresh_interval(&self) -> u32 {
+        self.refresh_interval.unwrap_or(DEFAULT_REFRESH_INTERVAL)
+    }
+}
+
+/*pub struct Config {
     pub max_fd_count: usize,
     pub inheritance: bool,
     pub refresh_interval: u32 //Refresh interval in ms
-}
+}*/
 
 pub struct Session {
     paths: Paths,
@@ -77,7 +102,7 @@ impl Session {
         let paths = Paths::new(client_index).await?;
         Ok(Session {
             paths,
-            fd_map: FdMap::new(config.max_fd_count),
+            fd_map: FdMap::new(config.get_max_fd_count()),
             spans: SpanState::new(),
             config,
             tree: tree::Span::new(),
@@ -114,7 +139,7 @@ impl Session {
         if let Some(data) = self.spans.get_data_mut(id) {
             let now = std::time::Instant::now();
             let diff = now - data.last_update;
-            if diff.as_millis() as u32 > self.config.refresh_interval {
+            if diff.as_millis() as u32 > self.config.get_refresh_interval() {
                 data.last_update = now;
                 let dropped = if data.is_dropped() { "D" } else { "L" };
                 let active = if data.is_active() { "A" } else { "I" };
@@ -228,7 +253,7 @@ impl Session {
                 );
                 let span = span.unwrap_or(nt::SpanId { id: 0, instance: 0 });
                 let mut value_set = ValueSet::from(value_set);
-                if self.config.inheritance {
+                if self.config.has_inheritance() {
                     if let Some(data) = self.spans.get_data(span.id) {
                         if let Some(instance) = self.spans.get_instance(&span) {
                             value_set.inherit_from(
@@ -267,7 +292,7 @@ impl Session {
             }
             nt::Command::SpanFree(id) => {
                 if let Some(mut data) = self.spans.free_instance(&id) {
-                    if self.config.inheritance {
+                    if self.config.has_inheritance() {
                         if let Some(parent) = self.tree.find_parent(id.id) {
                             if let Some(data1) = self.spans.get_data(parent) {
                                 if let Some(parent) = self.spans.get_any_instance(parent) {
