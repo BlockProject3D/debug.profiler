@@ -58,7 +58,7 @@ pub struct Client {
 impl Client {
     pub fn new(connection_string: String, index: usize, config: Config) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
-        broker_line(Type::LogInfo, index, format!("Connecting with {}...", connection_string));
+        broker_line(Type::ConnectionEvent, index, format!("Connecting with {}...", connection_string));
         let motherfuckingrust = connection_string.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;

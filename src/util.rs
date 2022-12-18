@@ -33,7 +33,8 @@ pub enum Type {
     LogError,
     SpanData,
     SpanAlloc,
-    SpanEvent
+    SpanEvent,
+    ConnectionEvent
 }
 
 impl Display for Type {
@@ -43,7 +44,8 @@ impl Display for Type {
             Type::LogError => f.write_str("E"),
             Type::SpanData => f.write_str("D"),
             Type::SpanAlloc => f.write_str("A"),
-            Type::SpanEvent => f.write_str("S")
+            Type::SpanEvent => f.write_str("S"),
+            Type::ConnectionEvent => f.write_str("C")
         }
     }
 }
