@@ -34,7 +34,7 @@ pub enum Type {
     SpanData,
     SpanAlloc,
     SpanEvent,
-    ConnectionEvent
+    ConnectionEvent,
 }
 
 impl Display for Type {
@@ -45,7 +45,7 @@ impl Display for Type {
             Type::SpanData => f.write_str("D"),
             Type::SpanAlloc => f.write_str("A"),
             Type::SpanEvent => f.write_str("S"),
-            Type::ConnectionEvent => f.write_str("C")
+            Type::ConnectionEvent => f.write_str("C"),
         }
     }
 }
@@ -53,6 +53,6 @@ impl Display for Type {
 pub fn broker_line<C: Into<Option<usize>>, T: Display>(ty: Type, client: C, msg: T) {
     match client.into() {
         Some(index) => println!("{} {}: {}", ty, index, msg),
-        None => println!("{} N: {}", ty, msg)
+        None => println!("{} N: {}", ty, msg),
     }
 }

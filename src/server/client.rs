@@ -34,15 +34,18 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::session::{Session, Config};
-use crate::{network_types as nt};
+use crate::network_types as nt;
+use crate::session::{Config, Session};
 use crate::util::{broker_line, Type};
 
 pub type ClientTaskResult = JoinHandle<Result<()>>;
 
 const DEFAULT_NET_BUFFER_SIZE: usize = 1024;
 
-async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<()>) -> Result<TcpStream> {
+async fn handle_connection(
+    connection_string: &str,
+    stop_signal: &mut Receiver<()>,
+) -> Result<TcpStream> {
     tokio::select! {
         res = TcpStream::connect(&connection_string) => res,
         _ = stop_signal => Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Connection aborted"))
@@ -52,21 +55,40 @@ async fn handle_connection(connection_string: &str, stop_signal: &mut Receiver<(
 pub struct Client {
     stop_signal: Option<Sender<()>>,
     index: usize,
-    connection_string: String
+    connection_string: String,
 }
 
 impl Client {
-    pub fn new(connection_string: String, index: usize, config: Config) -> (Client, ClientTaskResult) {
+    pub fn new(
+        connection_string: String,
+        index: usize,
+        config: Config,
+    ) -> (Client, ClientTaskResult) {
         let (stop_signal, mut receiver) = channel();
-        broker_line(Type::ConnectionEvent, index, format!("Connecting with {}...", connection_string));
+        broker_line(
+            Type::ConnectionEvent,
+            index,
+            format!("Connecting with {}...", connection_string),
+        );
         let motherfuckingrust = connection_string.clone();
         let task = tokio::spawn(async move {
             let stream = handle_connection(&connection_string, &mut receiver).await?;
-            broker_line(Type::LogInfo, index, format!("Connected to {}", connection_string));
+            broker_line(
+                Type::LogInfo,
+                index,
+                format!("Connected to {}", connection_string),
+            );
             let mut task = ClientTask::new(stream, index, config);
             task.run(receiver).await
         });
-        (Client { stop_signal: Some(stop_signal), index, connection_string: motherfuckingrust }, task)
+        (
+            Client {
+                stop_signal: Some(stop_signal),
+                index,
+                connection_string: motherfuckingrust,
+            },
+            task,
+        )
     }
 
     pub fn connection_string(&self) -> &str {
@@ -87,7 +109,7 @@ struct ClientTask {
     session: Option<Session>,
     client_index: usize,
     net_buffer: Vec<u8>,
-    config: Config
+    config: Config,
 }
 
 impl ClientTask {
@@ -97,7 +119,7 @@ impl ClientTask {
             session: None,
             client_index,
             net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE],
-            config
+            config,
         }
     }
 
@@ -134,11 +156,7 @@ impl ClientTask {
                     nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
                     nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
                     nt::MatchResult::Ok => {
-                        let session = Session::new(
-                            self.client_index,
-                            self.config,
-                        )
-                        .await?;
+                        let session = Session::new(self.client_index, self.config).await?;
                         self.session = Some(session);
                         let hello = nt::HELLO_PACKET.to_bytes();
                         self.stream.write_all(&hello).await?;

@@ -32,9 +32,9 @@ use tokio::{
     task::JoinHandle,
 };
 
+use super::command::{Command, CommandHandler};
 use crate::server::client_manager::{ClientManager, JoinResult};
 use crate::server::command::Event;
-use super::command::{Command, CommandHandler};
 use crate::util::{broker_line, Type};
 
 const COMMAND_CHAN_SIZE: usize = 4;
@@ -60,10 +60,7 @@ impl Server {
     }
 
     pub async fn send(&mut self, cmd: Command) {
-        self.command_sender
-            .send(cmd)
-            .await
-            .unwrap()
+        self.command_sender.send(cmd).await.unwrap()
     }
 
     pub async fn stop(self) {
@@ -77,7 +74,7 @@ impl Server {
 struct ServerTask {
     manager: ClientManager,
     command_receiver: Receiver<Command>,
-    command_handler: CommandHandler
+    command_handler: CommandHandler,
 }
 
 impl ServerTask {
@@ -85,20 +82,18 @@ impl ServerTask {
         ServerTask {
             manager: ClientManager::new(),
             command_receiver,
-            command_handler: CommandHandler::new()
+            command_handler: CommandHandler::new(),
         }
     }
 
     fn handle_client_stop(&mut self, index: usize, res: JoinResult<Result<()>>) {
         self.manager.remove(index);
         match res {
-            Ok(res) => {
-                match res {
-                    Ok(_) => broker_line(Type::LogInfo, index, "Client has disconnected"),
-                    Err(e) => broker_line(Type::LogError, index, format!("Client has errored: {}", e)),
-                }
-            }
-            Err(e) => broker_line(Type::LogError, index, format!("Client has panicked: {}", e))
+            Ok(res) => match res {
+                Ok(_) => broker_line(Type::LogInfo, index, "Client has disconnected"),
+                Err(e) => broker_line(Type::LogError, index, format!("Client has errored: {}", e)),
+            },
+            Err(e) => broker_line(Type::LogError, index, format!("Client has panicked: {}", e)),
         }
     }
 

@@ -26,12 +26,12 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::fmt::Display;
-use serde::Deserialize;
+use super::DEFAULT_PORT;
 use crate::server::client_manager::ClientManager;
 use crate::session::Config;
 use crate::util::{broker_line, Type};
-use super::DEFAULT_PORT;
+use serde::Deserialize;
+use std::fmt::Display;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -40,7 +40,7 @@ pub enum Command {
     Connect(String),
     Kick(usize),
     List,
-    Config(Config)
+    Config(Config),
 }
 
 #[derive(Eq, PartialEq)]
@@ -64,15 +64,18 @@ impl<T: Display> From<T> for Error {
     }
 }
 
-pub struct CommandHandler {
-}
+pub struct CommandHandler {}
 
 impl CommandHandler {
     pub fn new() -> CommandHandler {
         CommandHandler {}
     }
 
-    pub async fn handle_command(&mut self, clients: &mut ClientManager, cmd: Command) -> Result<Event, Error> {
+    pub async fn handle_command(
+        &mut self,
+        clients: &mut ClientManager,
+        cmd: Command,
+    ) -> Result<Event, Error> {
         match cmd {
             Command::Stop => Ok(Event::Terminate),
             Command::Connect(mut v) => {

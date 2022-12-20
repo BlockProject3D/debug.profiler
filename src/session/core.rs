@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use serde::Deserialize;
 use std::io::Result;
 use std::sync::Arc;
 use std::time::Duration;
-use serde::Deserialize;
 
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -55,7 +55,7 @@ const DEFAULT_REFRESH_INTERVAL: u32 = 500; //500 ms
 pub struct Config {
     pub max_fd_count: Option<usize>,
     pub inheritance: Option<bool>,
-    pub refresh_interval: Option<u32> //Refresh interval in ms
+    pub refresh_interval: Option<u32>, //Refresh interval in ms
 }
 
 impl Config {
@@ -84,7 +84,7 @@ pub struct Session {
     spans: SpanState,
     config: Config,
     tree: tree::Span,
-    client_index: usize
+    client_index: usize,
 }
 
 fn duration_to_string(duration: &Duration) -> String {
@@ -106,33 +106,44 @@ impl Session {
             spans: SpanState::new(),
             config,
             tree: tree::Span::new(),
-            client_index
+            client_index,
         })
     }
 
     fn print_event(&self, id: u32, msg: String, value_set: ValueSet) {
-        broker_line(Type::SpanEvent, self.client_index,
-                    format!("{} {} {}",
-                            id,
-                            csv_format_single(msg, ' '),
-                            csv_format_single(value_set.to_string(), ' ')
-                    ));
+        broker_line(
+            Type::SpanEvent,
+            self.client_index,
+            format!(
+                "{} {} {}",
+                id,
+                csv_format_single(msg, ' '),
+                csv_format_single(value_set.to_string(), ' ')
+            ),
+        );
     }
 
     fn print_span(&self, id: u32, metadata: &Arc<Metadata>) {
         let file = metadata.file.as_deref().unwrap_or("None");
-        let line = metadata.line.map(|v| v.to_string()).unwrap_or("None".into());
+        let line = metadata
+            .line
+            .map(|v| v.to_string())
+            .unwrap_or("None".into());
         let module = metadata.module_path.as_deref().unwrap_or("None");
-        broker_line(Type::SpanAlloc, self.client_index,
-                    format!("{} {} {} {} {} {} {}",
-                            id,
-                            csv_format_single(&metadata.name, ' '),
-                            metadata.level,
-                            csv_format_single(&metadata.target, ' '),
-                            csv_format_single(module, ' '),
-                            csv_format_single(file, ' '),
-                            line
-                    ));
+        broker_line(
+            Type::SpanAlloc,
+            self.client_index,
+            format!(
+                "{} {} {} {} {} {} {}",
+                id,
+                csv_format_single(&metadata.name, ' '),
+                metadata.level,
+                csv_format_single(&metadata.target, ' '),
+                csv_format_single(module, ' '),
+                csv_format_single(file, ' '),
+                line
+            ),
+        );
     }
 
     fn print_data_update(&mut self, id: u32) {
@@ -146,14 +157,20 @@ impl Session {
                 let min = Duration::from(data.min);
                 let max = Duration::from(data.max);
                 let average = Duration::from(data.average);
-                broker_line(Type::SpanData, self.client_index,
-                            format!("{} {} {} {} {} {} {}",
-                                    id, dropped, active,
-                                    duration_to_string(&min),
-                                    duration_to_string(&max),
-                                    duration_to_string(&average),
-                                    data.run_count
-                            ));
+                broker_line(
+                    Type::SpanData,
+                    self.client_index,
+                    format!(
+                        "{} {} {} {} {} {} {}",
+                        id,
+                        dropped,
+                        active,
+                        duration_to_string(&min),
+                        duration_to_string(&max),
+                        duration_to_string(&average),
+                        data.run_count
+                    ),
+                );
             }
         }
     }
@@ -314,7 +331,9 @@ impl Session {
                             &data.message.as_deref().unwrap_or_default(),
                             &data.duration.as_secs().to_string(),
                             &data.duration.subsec_millis().to_string(),
-                            &(data.duration.subsec_micros() - (data.duration.subsec_millis() * 1000)).to_string()
+                            &(data.duration.subsec_micros()
+                                - (data.duration.subsec_millis() * 1000))
+                                .to_string(),
                         ]) + ","
                             + &data.value_set.clone().to_string()
                             + "\n")
@@ -323,24 +342,33 @@ impl Session {
                     .await?;
                 }
                 self.print_data_update(id.id);
-            },
+            }
             nt::Command::Terminate => {
                 let file = File::create(self.paths.get_root().join("times.csv")).await?;
                 let mut buffer = BufWriter::new(file);
                 for (index, data) in self.spans.iter_mut() {
                     data.average /= data.run_count as u32;
-                    buffer.write_all((csv_format([
-                        &*index.to_string(),
-                        &data.min.as_secs().to_string(),
-                        &data.min.subsec_millis().to_string(),
-                        &(data.min.subsec_micros() - (data.min.subsec_millis() * 1000)).to_string(),
-                        &data.max.as_secs().to_string(),
-                        &data.max.subsec_millis().to_string(),
-                        &(data.max.subsec_micros() - (data.max.subsec_millis() * 1000)).to_string(),
-                        &data.average.as_secs().to_string(),
-                        &data.average.subsec_millis().to_string(),
-                        &(data.average.subsec_micros() - (data.average.subsec_millis() * 1000)).to_string(),
-                    ]) + "\n").as_bytes()).await?;
+                    buffer
+                        .write_all(
+                            (csv_format([
+                                &*index.to_string(),
+                                &data.min.as_secs().to_string(),
+                                &data.min.subsec_millis().to_string(),
+                                &(data.min.subsec_micros() - (data.min.subsec_millis() * 1000))
+                                    .to_string(),
+                                &data.max.as_secs().to_string(),
+                                &data.max.subsec_millis().to_string(),
+                                &(data.max.subsec_micros() - (data.max.subsec_millis() * 1000))
+                                    .to_string(),
+                                &data.average.as_secs().to_string(),
+                                &data.average.subsec_millis().to_string(),
+                                &(data.average.subsec_micros()
+                                    - (data.average.subsec_millis() * 1000))
+                                    .to_string(),
+                            ]) + "\n")
+                                .as_bytes(),
+                        )
+                        .await?;
                 }
                 buffer.flush().await?;
                 let file = File::create(self.paths.get_root().join("tree.txt")).await?;
@@ -348,20 +376,48 @@ impl Session {
                 self.tree.write(&mut buffer).await?;
                 buffer.flush().await?;
                 self.fd_map.flush().await?;
-            },
-            nt::Command::Project { app_name, name, version, target, command_line, cpu } => {
+            }
+            nt::Command::Project {
+                app_name,
+                name,
+                version,
+                target,
+                command_line,
+                cpu,
+            } => {
                 let file = File::create(self.paths.get_root().join("info.csv")).await?;
                 let mut buffer = BufWriter::new(file);
-                buffer.write_all((csv_format(["AppName", &app_name]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["Name", &name]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["Version", &version]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["CommandLine", &command_line]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["TargetOs", &target.os]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["TargetFamily", &target.family]) + "\n").as_bytes()).await?;
-                buffer.write_all((csv_format(["TargetArch", &target.arch]) + "\n").as_bytes()).await?;
+                buffer
+                    .write_all((csv_format(["AppName", &app_name]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["Name", &name]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["Version", &version]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["CommandLine", &command_line]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["TargetOs", &target.os]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["TargetFamily", &target.family]) + "\n").as_bytes())
+                    .await?;
+                buffer
+                    .write_all((csv_format(["TargetArch", &target.arch]) + "\n").as_bytes())
+                    .await?;
                 if let Some(cpu) = cpu {
-                    buffer.write_all((csv_format(["CpuName", &cpu.name]) + "\n").as_bytes()).await?;
-                    buffer.write_all((csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n").as_bytes()).await?;
+                    buffer
+                        .write_all((csv_format(["CpuName", &cpu.name]) + "\n").as_bytes())
+                        .await?;
+                    buffer
+                        .write_all(
+                            (csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n")
+                                .as_bytes(),
+                        )
+                        .await?;
                 }
                 buffer.flush().await?;
             }

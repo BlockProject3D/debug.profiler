@@ -28,23 +28,31 @@
 
 use crate::util::{broker_line, Type};
 
+mod command;
+mod command_deserializer;
 mod network_types;
+mod server;
 mod session;
 mod util;
-mod command;
-mod server;
-mod command_deserializer;
 
 async fn run() {
     let server = server::Server::new().await;
     match server {
         Ok(mut v) => {
             if let Err(e) = command::command_loop(&mut v).await {
-                broker_line(Type::LogError, None, format!("Failed to read standard input: {}", e));
+                broker_line(
+                    Type::LogError,
+                    None,
+                    format!("Failed to read standard input: {}", e),
+                );
             }
             v.stop().await;
         }
-        Err(e) => broker_line(Type::LogError, None, format!("Failed to start server: {}", e)),
+        Err(e) => broker_line(
+            Type::LogError,
+            None,
+            format!("Failed to start server: {}", e),
+        ),
     }
 }
 

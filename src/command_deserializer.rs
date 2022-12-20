@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
+use serde::Deserializer;
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::Peekable;
 use std::str::Split;
-use serde::de::{DeserializeSeed, EnumAccess, MapAccess, SeqAccess, VariantAccess, Visitor};
-use serde::Deserializer;
 
 #[derive(Debug)]
 pub enum Error<'a> {
@@ -38,7 +38,7 @@ pub enum Error<'a> {
     UnexpectedEof,
     ExpectedEof,
     SyntaxError(&'a str),
-    Other(String)
+    Other(String),
 }
 
 impl<'a> serde::de::StdError for Error<'a> {}
@@ -50,37 +50,48 @@ impl<'a> Display for Error<'a> {
             Error::UnexpectedEof => f.write_str("Unexpected EOF"),
             Error::ExpectedEof => f.write_str("Expected EOF"),
             Error::SyntaxError(v) => write!(f, "Syntax error in argument '{}'", v),
-            Error::Other(v) => write!(f, "Foreign error: {}", v)
+            Error::Other(v) => write!(f, "Foreign error: {}", v),
         }
     }
 }
 
 impl<'a> serde::de::Error for Error<'a> {
-    fn custom<T>(msg: T) -> Self where T: Display {
+    fn custom<T>(msg: T) -> Self
+    where
+        T: Display,
+    {
         Error::Other(msg.to_string())
     }
 }
 
 pub struct CommandDeserializer<'de, T: Iterator<Item = &'de str>> {
-    args: Peekable<T>
+    args: Peekable<T>,
 }
 
 impl<'de, T: Iterator<Item = &'de str>> CommandDeserializer<'de, T> {
     pub fn new(iter: T) -> CommandDeserializer<'de, T> {
         CommandDeserializer {
-            args: iter.peekable()
+            args: iter.peekable(),
         }
     }
 }
 
-impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de> for &'a mut CommandDeserializer<'de, T> {
+impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de>
+    for &'a mut CommandDeserializer<'de, T>
+{
     type Error = Error<'de>;
 
-    fn deserialize_any<V>(self, _: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_any<V>(self, _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         Err(Error::Unsupported)
     }
 
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         if val == "true" || val == "1" || val == "on" {
             visitor.visit_bool(true)
@@ -91,145 +102,247 @@ impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de> for &'a mut Comman
         }
     }
 
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_i8(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_i16(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_i32(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_i64(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_u8(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_u16(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_u32(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_u64(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_f32(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_f64(val.parse().map_err(|_| Error::SyntaxError(val))?)
     }
 
-    fn deserialize_char<V>(self, _: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_char<V>(self, _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         Err(Error::Unsupported)
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_borrowed_str(val)
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         let val = self.args.next().ok_or(Error::UnexpectedEof)?;
         visitor.visit_string(val.into())
     }
 
-    fn deserialize_bytes<V>(self, _: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_bytes<V>(self, _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         Err(Error::Unsupported)
     }
 
-    fn deserialize_byte_buf<V>(self, _: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_byte_buf<V>(self, _: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         Err(Error::Unsupported)
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         match self.args.peek() {
             None => visitor.visit_none(),
-            Some(_) => visitor.visit_some(self)
+            Some(_) => visitor.visit_some(self),
         }
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         match self.args.next() {
             None => visitor.visit_unit(),
-            Some(_) => Err(Error::ExpectedEof)
+            Some(_) => Err(Error::ExpectedEof),
         }
     }
 
-    fn deserialize_unit_struct<V>(self, _: &'static str, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_unit_struct<V>(
+        self,
+        _: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.deserialize_unit(visitor)
     }
 
-    fn deserialize_newtype_struct<V>(self, _: &'static str, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_newtype_struct<V>(
+        self,
+        _: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         visitor.visit_newtype_struct(self)
     }
 
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         visitor.visit_seq(Sequence {
             de: self,
-            size: usize::MAX
+            size: usize::MAX,
         })
     }
 
-    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_tuple<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         visitor.visit_seq(Sequence {
             de: self,
-            size: len
+            size: len,
         })
     }
 
-    fn deserialize_tuple_struct<V>(self, _: &'static str, len: usize, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_tuple_struct<V>(
+        self,
+        _: &'static str,
+        len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.deserialize_tuple(len, visitor)
     }
 
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         visitor.visit_map(Map {
             de: self,
             next: None,
-            size: usize::MAX
+            size: usize::MAX,
         })
     }
 
-    fn deserialize_struct<V>(self, _: &'static str, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_struct<V>(
+        self,
+        _: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         visitor.visit_map(Map {
             de: self,
             next: None,
-            size: fields.len()
+            size: fields.len(),
         })
     }
 
-    fn deserialize_enum<V>(self, _: &'static str, _: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
-        visitor.visit_enum(Enum {
-            de: self
-        })
+    fn deserialize_enum<V>(
+        self,
+        _: &'static str,
+        _: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_enum(Enum { de: self })
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.deserialize_str(visitor)
     }
 
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.args.next();
         visitor.visit_none()
     }
@@ -238,7 +351,7 @@ impl<'a, 'de, T: Iterator<Item = &'de str>> Deserializer<'de> for &'a mut Comman
 struct Map<'a, 'de, T: Iterator<Item = &'de str>> {
     de: &'a mut CommandDeserializer<'de, T>,
     next: Option<CommandDeserializer<'de, Split<'de, &'de str>>>,
-    size: usize
+    size: usize,
 }
 
 impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> Map<'a, 'de, T> {
@@ -259,7 +372,10 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> Map<'a, 'de, T> {
 impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> MapAccess<'de> for Map<'a, 'de, T> {
     type Error = Error<'de>;
 
-    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error> where K: DeserializeSeed<'de> {
+    fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>, Self::Error>
+    where
+        K: DeserializeSeed<'de>,
+    {
         match self.get_next() {
             None => Ok(None),
             Some(v) => {
@@ -269,7 +385,10 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> MapAccess<'de> for Map<'a, 'de, 
         }
     }
 
-    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error> where V: DeserializeSeed<'de> {
+    fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
         let val = seed.deserialize(self.get_next().ok_or(Error::UnexpectedEof)?);
         self.next = None;
         val
@@ -278,13 +397,16 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> MapAccess<'de> for Map<'a, 'de, 
 
 struct Sequence<'a, 'de, T: Iterator<Item = &'de str>> {
     de: &'a mut CommandDeserializer<'de, T>,
-    size: usize
+    size: usize,
 }
 
 impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> SeqAccess<'de> for Sequence<'a, 'de, T> {
     type Error = Error<'de>;
 
-    fn next_element_seed<V>(&mut self, seed: V) -> Result<Option<V::Value>, Self::Error> where V: DeserializeSeed<'de> {
+    fn next_element_seed<V>(&mut self, seed: V) -> Result<Option<V::Value>, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
         if self.size == 0 || self.de.args.peek().is_none() {
             return Ok(None);
         }
@@ -301,7 +423,10 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> EnumAccess<'de> for Enum<'a, 'de
     type Error = Error<'de>;
     type Variant = Self;
 
-    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error> where V: DeserializeSeed<'de> {
+    fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
         let val = seed.deserialize(&mut *self.de)?;
         Ok((val, self))
     }
@@ -314,15 +439,28 @@ impl<'a, 'de: 'a, T: Iterator<Item = &'de str>> VariantAccess<'de> for Enum<'a, 
         Ok(())
     }
 
-    fn newtype_variant_seed<V>(self, seed: V) -> Result<V::Value, Self::Error> where V: DeserializeSeed<'de> {
+    fn newtype_variant_seed<V>(self, seed: V) -> Result<V::Value, Self::Error>
+    where
+        V: DeserializeSeed<'de>,
+    {
         seed.deserialize(self.de)
     }
 
-    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn tuple_variant<V>(self, len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.de.deserialize_tuple(len, visitor)
     }
 
-    fn struct_variant<V>(self, fields: &'static [&'static str], visitor: V) -> Result<V::Value, Self::Error> where V: Visitor<'de> {
+    fn struct_variant<V>(
+        self,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
         self.de.deserialize_struct("", fields, visitor)
     }
 }

@@ -27,6 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use super::client::{Client, ClientTaskResult};
+use crate::session::Config;
 use futures::{
     stream::{FuturesUnordered, Next},
     StreamExt,
@@ -38,13 +39,12 @@ use std::{
     task::{Context, Poll},
 };
 use tokio::task::JoinError;
-use crate::session::Config;
 
 pub type JoinResult<T> = std::result::Result<T, JoinError>;
 
 struct DataHack<T: Clone, F: Future> {
     user_data: T,
-    future: F
+    future: F,
 }
 
 impl<T: Clone, F: Future> DataHack<T, F> {
@@ -62,7 +62,7 @@ impl<T: Clone, F: Future> Future for DataHack<T, F> {
             let pin = Pin::new_unchecked(&mut raw.future);
             match pin.poll(cx) {
                 Poll::Ready(v) => Poll::Ready((raw.user_data.clone(), v)),
-                Poll::Pending => Poll::Pending
+                Poll::Pending => Poll::Pending,
             }
         }
     }
@@ -90,7 +90,7 @@ pub struct ClientManager {
     clients: Vec<Client>,
     tasks: FuturesUnordered<DataHack<usize, ClientTaskResult>>,
     cur_index: usize,
-    config: Config
+    config: Config,
 }
 
 impl ClientManager {
@@ -99,7 +99,7 @@ impl ClientManager {
             clients: Vec::new(),
             tasks: FuturesUnordered::new(),
             cur_index: 0,
-            config: Config::default()
+            config: Config::default(),
         }
     }
 

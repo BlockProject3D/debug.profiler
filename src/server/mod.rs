@@ -26,10 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-mod core;
 mod client;
 mod client_manager;
 mod command;
+mod core;
 
 pub const DEFAULT_PORT: u16 = 4026;
 

@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use serde::Deserialize;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::command_deserializer::CommandDeserializer;
 use crate::server::{Command, Server};
 use crate::util::{broker_line, Type};
+use serde::Deserialize;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Result<T> = std::io::Result<T>;
 
@@ -42,9 +42,9 @@ pub async fn command_loop(server: &mut Server) -> Result<()> {
         match Command::deserialize(&mut parser) {
             Ok(v) => match v {
                 Command::Stop => break,
-                _ => server.send(v).await
+                _ => server.send(v).await,
             },
-            Err(e) => broker_line(Type::LogError, None, e)
+            Err(e) => broker_line(Type::LogError, None, e),
         }
     }
     Ok(())

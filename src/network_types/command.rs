@@ -39,20 +39,20 @@ pub struct SpanId {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct CpuInfo {
     pub name: String,
-    pub core_count: u32
+    pub core_count: u32,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TargetInfo {
     pub os: String,
     pub family: String,
-    pub arch: String
+    pub arch: String,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct Duration {
     pub seconds: u32, //Realistically we're never gonna exceed 2^32-1 seconds of running time...
-    pub nano_seconds: u32
+    pub nano_seconds: u32,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub enum Command {
         version: String,
         target: TargetInfo,
         command_line: String,
-        cpu: Option<CpuInfo>
+        cpu: Option<CpuInfo>,
     },
 
     SpanAlloc {
