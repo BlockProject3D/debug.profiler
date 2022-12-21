@@ -30,10 +30,8 @@ use serde::Deserialize;
 use std::io::Result;
 use std::sync::Arc;
 use std::time::Duration;
+use chrono::{Local, NaiveDateTime, TimeZone};
 
-use time::macros::format_description;
-use time::OffsetDateTime;
-use time_tz::OffsetDateTimeExt;
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
 
@@ -252,14 +250,10 @@ impl Session {
                 message,
                 value_set,
             } => {
-                let date = OffsetDateTime::from_unix_timestamp(time)
-                    .unwrap_or(OffsetDateTime::now_utc())
-                    .to_timezone(
-                        time_tz::system::get_timezone()
-                            .unwrap_or(time_tz::timezones::db::us::CENTRAL),
-                    );
-                let date_format = format_description!("[weekday repr:short] [month repr:short] [day] [hour repr:12]:[minute]:[second] [period case:upper]");
-                let date_str = date.format(date_format).unwrap_or("<error>".into());
+                let date = NaiveDateTime::from_timestamp_millis(time)
+                    .map(|v| Local.from_utc_datetime(&v))
+                    .unwrap_or(Local::now());
+                let date_str = date.format("%a %b %d &Y %I:%M:%S %P");
                 let (target, module) = metadata.get_target_module();
                 let msg = format!(
                     "({}) <{}> {}: {}",
