@@ -148,7 +148,11 @@ impl Session {
                 let active = if data.is_active() { "A" } else { "I" };
                 let min = Duration::from(data.min);
                 let max = Duration::from(data.max);
-                let average = Duration::from(data.average);
+                let average = if data.run_count == 0 {
+                    Duration::ZERO
+                } else {
+                    Duration::from(data.average) / data.run_count as u32
+                };
                 broker_line(
                     Type::SpanData,
                     self.client_index,
