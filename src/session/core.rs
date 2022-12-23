@@ -37,11 +37,11 @@ use tokio::io::{AsyncWriteExt, BufWriter};
 
 use crate::network_types as nt;
 use crate::network_types::Metadata;
+use crate::session::file_manager::{FileManager, Span};
 use crate::session::utils::csv_format_single;
 use crate::util::{broker_line, Type};
 
-use super::fd_map::FdMap;
-use super::paths::{Directory, Paths};
+use super::paths::Paths;
 use super::state::{SpanInstance, SpanState};
 use super::tree;
 use super::utils::{csv_format, ValueSet};
@@ -78,7 +78,8 @@ impl Config {
 
 pub struct Session {
     paths: Paths,
-    fd_map: FdMap,
+    //fd_map: FdMap,
+    manager: FileManager,
     spans: SpanState,
     config: Config,
     tree: tree::Span,
@@ -99,8 +100,8 @@ impl Session {
     pub async fn new(client_index: usize, config: Config) -> Result<Session> {
         let paths = Paths::new(client_index).await?;
         Ok(Session {
+            manager: FileManager::new(config.get_max_fd_count(), paths.clone()),
             paths,
-            fd_map: FdMap::new(config.get_max_fd_count()),
             spans: SpanState::new(),
             config,
             tree: tree::Span::new(),
@@ -173,32 +174,19 @@ impl Session {
         }
     }
 
-    pub async fn handle_command(&mut self, cmd: nt::Command) -> Result<()> {
+    pub async fn get_error(&mut self) -> Result<()> {
+        self.manager.get_error().await
+    }
+
+    pub async fn stop(self) -> Result<()> {
+        self.manager.stop().await
+    }
+
+    pub async fn handle_command(&mut self, cmd: nt::Command) -> Result<bool> {
         match cmd {
             nt::Command::SpanAlloc { id, metadata } => {
-                let out = self
-                    .fd_map
-                    .open_file(&self.paths, id.id, Directory::Metadata)
-                    .await?;
                 let metadata = Arc::new(metadata);
-                let opt_file = format!("File,{}\n", metadata.file.as_deref().unwrap_or_default());
-                let opt_name = format!("Name,{}\n", metadata.name);
-                let opt_level = format!("Level,{}\n", metadata.level);
-                let opt_line = match metadata.line {
-                    Some(v) => format!("Line,{}\n", v),
-                    None => "Line,\n".into(),
-                };
-                let opt_target = format!("Target,{}\n", metadata.target);
-                let opt_mpath = format!(
-                    "Module path,{}\n",
-                    metadata.module_path.as_deref().unwrap_or_default()
-                );
-                out.write_all(opt_file.as_bytes()).await?;
-                out.write_all(opt_name.as_bytes()).await?;
-                out.write_all(opt_level.as_bytes()).await?;
-                out.write_all(opt_line.as_bytes()).await?;
-                out.write_all(opt_target.as_bytes()).await?;
-                out.write_all(opt_mpath.as_bytes()).await?;
+                self.manager.write_span(id.id, Span::Metadata(metadata.clone())).await;
                 self.print_span(id.id, &metadata);
                 self.tree
                     .add_node(tree::Span::with_metadata(id.id, metadata.clone()));
@@ -274,18 +262,7 @@ impl Session {
                         }
                     }
                 }
-                let out = self
-                    .fd_map
-                    .open_file(&self.paths, span.id, Directory::Events)
-                    .await?;
-                out.write_all(
-                    (csv_format([&*span.instance.to_string(), &msg])
-                        + ","
-                        + &value_set.clone().to_string()
-                        + "\n")
-                        .as_bytes(),
-                )
-                .await?;
+                self.manager.write_span(span.id, Span::Event(span.instance, msg.clone(), value_set.clone())).await;
                 self.print_event(span.id, msg, value_set);
             }
             nt::Command::SpanEnter(id) => {
@@ -315,25 +292,7 @@ impl Session {
                             }
                         }
                     }
-                    let out = self
-                        .fd_map
-                        .open_file(&self.paths, id.id, Directory::Runs)
-                        .await?;
-                    out.write_all(
-                        (csv_format([
-                            &*id.instance.to_string(),
-                            &data.message.as_deref().unwrap_or_default(),
-                            &data.duration.as_secs().to_string(),
-                            &data.duration.subsec_millis().to_string(),
-                            &(data.duration.subsec_micros()
-                                - (data.duration.subsec_millis() * 1000))
-                                .to_string(),
-                        ]) + ","
-                            + &data.value_set.clone().to_string()
-                            + "\n")
-                            .as_bytes(),
-                    )
-                    .await?;
+                    self.manager.write_span(id.id, Span::Run(id.instance, data)).await;
                 }
                 self.print_data_update(id.id);
             }
@@ -369,53 +328,12 @@ impl Session {
                 let mut buffer = BufWriter::new(file);
                 self.tree.write(&mut buffer).await?;
                 buffer.flush().await?;
-                self.fd_map.flush().await?;
+                return Ok(false);
             }
-            nt::Command::Project {
-                app_name,
-                name,
-                version,
-                target,
-                command_line,
-                cpu,
-            } => {
-                let file = File::create(self.paths.get_root().join("info.csv")).await?;
-                let mut buffer = BufWriter::new(file);
-                buffer
-                    .write_all((csv_format(["AppName", &app_name]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["Name", &name]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["Version", &version]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["CommandLine", &command_line]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["TargetOs", &target.os]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["TargetFamily", &target.family]) + "\n").as_bytes())
-                    .await?;
-                buffer
-                    .write_all((csv_format(["TargetArch", &target.arch]) + "\n").as_bytes())
-                    .await?;
-                if let Some(cpu) = cpu {
-                    buffer
-                        .write_all((csv_format(["CpuName", &cpu.name]) + "\n").as_bytes())
-                        .await?;
-                    buffer
-                        .write_all(
-                            (csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n")
-                                .as_bytes(),
-                        )
-                        .await?;
-                }
-                buffer.flush().await?;
+            nt::Command::Project(project) => {
+                self.manager.write_project(project);
             }
         }
-        Ok(())
+        Ok(true)
     }
 }

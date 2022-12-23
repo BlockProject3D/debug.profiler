@@ -36,6 +36,7 @@ pub enum Directory {
     Metadata,
 }
 
+#[derive(Clone)]
 pub struct Paths {
     dir: PathBuf,
     runs_dir: PathBuf,

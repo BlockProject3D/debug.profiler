@@ -30,7 +30,7 @@ use std::io::Result;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufReader},
     net::TcpStream,
-    sync::oneshot::{channel, Receiver, Sender},
+    sync::oneshot,
     task::JoinHandle,
 };
 
@@ -44,7 +44,7 @@ const DEFAULT_NET_BUFFER_SIZE: usize = 1024;
 
 async fn handle_connection(
     connection_string: &str,
-    stop_signal: &mut Receiver<()>,
+    stop_signal: &mut oneshot::Receiver<()>,
 ) -> Result<TcpStream> {
     tokio::select! {
         res = TcpStream::connect(&connection_string) => res,
@@ -53,9 +53,9 @@ async fn handle_connection(
 }
 
 pub struct Client {
-    stop_signal: Option<Sender<()>>,
+    stop_signal: Option<oneshot::Sender<()>>,
     index: usize,
-    connection_string: String,
+    connection_string: String
 }
 
 impl Client {
@@ -64,7 +64,7 @@ impl Client {
         index: usize,
         config: Config,
     ) -> (Client, ClientTaskResult) {
-        let (stop_signal, mut receiver) = channel();
+        let (stop_signal, mut receiver) = oneshot::channel();
         broker_line(
             Type::ConnectionEvent,
             index,
@@ -106,7 +106,7 @@ impl Client {
 
 struct ClientTask {
     stream: BufReader<TcpStream>,
-    session: Option<Session>,
+    //session: Option<Session>,
     client_index: usize,
     net_buffer: Vec<u8>,
     config: Config,
@@ -116,64 +116,72 @@ impl ClientTask {
     pub fn new(stream: TcpStream, client_index: usize, config: Config) -> ClientTask {
         ClientTask {
             stream: BufReader::new(stream),
-            session: None,
+            //session: None,
             client_index,
             net_buffer: vec![0; DEFAULT_NET_BUFFER_SIZE],
             config,
         }
     }
 
-    pub fn kick(msg: &str) -> Result<()> {
+    pub fn kick<T>(msg: &str) -> Result<T> {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!("kicked, reason: {}", msg),
         ))
     }
 
-    pub async fn handle_read(&mut self) -> Result<()> {
-        match &mut self.session {
-            Some(v) => {
-                let len = self.stream.read_u32_le().await?;
-                if len as usize > self.net_buffer.len() {
-                    self.net_buffer.resize(len as usize, 0);
-                }
-                self.stream
-                    .read_exact(&mut self.net_buffer[..len as usize])
-                    .await?;
-                let cmd: nt::Command = match bincode::deserialize(&self.net_buffer[..len as usize])
-                {
-                    Ok(v) => v,
-                    Err(e) => return Self::kick(&e.to_string()),
-                };
-                v.handle_command(cmd).await?;
-                Ok(())
-            }
-            None => {
-                let mut buffer: [u8; 40] = [0; 40]; //Hello is a 40 bytes packet.
-                self.stream.read_exact(&mut buffer).await?;
-                let packet = nt::Hello::from_bytes(buffer);
-                match packet.matches(&nt::HELLO_PACKET) {
-                    nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
-                    nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
-                    nt::MatchResult::Ok => {
-                        let session = Session::new(self.client_index, self.config).await?;
-                        self.session = Some(session);
-                        let hello = nt::HELLO_PACKET.to_bytes();
-                        self.stream.write_all(&hello).await?;
-                        Ok(())
-                    }
-                }
+    async fn handshake(&mut self) -> Result<Session> {
+        let mut buffer: [u8; 40] = [0; 40]; //Hello is a 40 bytes packet.
+        self.stream.read_exact(&mut buffer).await?;
+        let packet = nt::Hello::from_bytes(buffer);
+        match packet.matches(&nt::HELLO_PACKET) {
+            nt::MatchResult::SignatureMismatch => Self::kick("wrong signature"),
+            nt::MatchResult::VersionMismatch => Self::kick("wrong version"),
+            nt::MatchResult::Ok => {
+                let session = Session::new(self.client_index, self.config).await?;
+                //self.session = Some(session);
+                let hello = nt::HELLO_PACKET.to_bytes();
+                self.stream.write_all(&hello).await?;
+                Ok(session)
             }
         }
     }
 
-    pub async fn run(&mut self, mut stop_signal: Receiver<()>) -> Result<()> {
+    async fn read_command(&mut self) -> Result<nt::Command> {
+        let len = self.stream.read_u32_le().await?;
+        if len as usize > self.net_buffer.len() {
+            self.net_buffer.resize(len as usize, 0);
+        }
+        self.stream
+            .read_exact(&mut self.net_buffer[..len as usize])
+            .await?;
+        let cmd: nt::Command = match bincode::deserialize(&self.net_buffer[..len as usize]) {
+            Ok(v) => v,
+            Err(e) => return Self::kick(&e.to_string()),
+        };
+        Ok(cmd)
+    }
+
+    async fn main_loop(&mut self, session: &mut Session, mut stop_signal: oneshot::Receiver<()>) -> Result<()> {
         loop {
             tokio::select! {
-                res = self.handle_read() => res?,
+                res = session.get_error() => res?,
+                res = self.read_command() => if !session.handle_command(res?).await? {
+                    break;
+                },
                 _ = &mut stop_signal => break
             }
         }
         Ok(())
+    }
+
+    pub async fn run(&mut self, mut stop_signal: oneshot::Receiver<()>) -> Result<()> {
+        let mut session = tokio::select! {
+            res = self.handshake() => res?,
+            _ = &mut stop_signal => return Ok(())
+        };
+        let res = self.main_loop(&mut session, stop_signal).await;
+        session.stop().await?;
+        res
     }
 }
