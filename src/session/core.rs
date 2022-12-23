@@ -70,15 +70,8 @@ impl Config {
     }
 }
 
-/*pub struct Config {
-    pub max_fd_count: usize,
-    pub inheritance: bool,
-    pub refresh_interval: u32 //Refresh interval in ms
-}*/
-
 pub struct Session {
     paths: Paths,
-    //fd_map: FdMap,
     manager: FileManager,
     spans: SpanState,
     config: Config,
