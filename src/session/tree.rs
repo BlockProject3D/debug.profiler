@@ -27,6 +27,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::{collections::VecDeque, io::Result, sync::Arc};
+use std::collections::HashMap;
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -85,8 +86,7 @@ impl Span {
         if let Some(index) = index {
             return Some(self.children.remove(index));
         }
-        //Stupid bullshit design of im crate: not able to implement a fucking IntoIterator for &mut!
-        for v in self.children.iter_mut() {
+        for v in &mut self.children {
             if let Some(node) = v.remove_node(id) {
                 return Some(node);
             }
@@ -117,13 +117,47 @@ impl Span {
         }
         Some(node)
     }
+}
+
+impl Default for Span {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Default)]
+pub struct SpanTree {
+    root: Span,
+    node_to_parent: HashMap<u32, u32>
+}
+
+impl AsRef<Span> for SpanTree {
+    fn as_ref(&self) -> &Span {
+        &self.root
+    }
+}
+
+impl SpanTree {
+    pub fn new() -> SpanTree {
+        SpanTree::default()
+    }
+
+    /// Inserts a new child node to this node.
+    pub fn add_node(&mut self, node: Span) {
+        self.root.add_node(node);
+    }
 
     /// Attempts to relocated the specified node under the new specified parent.
     ///
     /// Returns true if the operation has succeeded.
     pub fn relocate_node(&mut self, id: u32, new_parent: u32) -> bool {
-        if let Some(node) = self.remove_node(id) {
-            if self.add_node_with_parent(node, new_parent).is_none() {
+        //If the node's parent is already set and the parent has not changed, no need to set it again.
+        if self.node_to_parent.get(&id).map(|v| *v == new_parent).unwrap_or_default() {
+            return false;
+        }
+        if let Some(node) = self.root.remove_node(id) {
+            if self.root.add_node_with_parent(node, new_parent).is_none() {
+                self.node_to_parent.insert(id, new_parent);
                 return true;
             }
         }
@@ -132,7 +166,7 @@ impl Span {
 
     pub async fn write<T: AsyncWrite + AsyncWriteExt + Unpin>(&self, file: &mut T) -> Result<()> {
         let mut queue = VecDeque::new();
-        queue.push_back((self.metadata.name.clone(), self));
+        queue.push_back((self.root.metadata.name.clone(), &self.root));
         while let Some((path, elem)) = queue.pop_front() {
             file.write_all(format!("{} {}\n", elem.id, path).as_bytes())
                 .await?;
@@ -141,11 +175,5 @@ impl Span {
             }
         }
         Ok(())
-    }
-}
-
-impl Default for Span {
-    fn default() -> Self {
-        Self::new()
     }
 }

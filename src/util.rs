@@ -35,6 +35,7 @@ pub enum Type {
     SpanAlloc,
     SpanEvent,
     ConnectionEvent,
+    SpanPath,
 }
 
 impl Display for Type {
@@ -46,6 +47,7 @@ impl Display for Type {
             Type::SpanAlloc => f.write_str("A"),
             Type::SpanEvent => f.write_str("S"),
             Type::ConnectionEvent => f.write_str("C"),
+            Type::SpanPath => f.write_str("P")
         }
     }
 }

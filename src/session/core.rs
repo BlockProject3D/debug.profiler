@@ -75,7 +75,7 @@ pub struct Session {
     manager: FileManager,
     spans: SpanState,
     config: Config,
-    tree: tree::Span,
+    tree: tree::SpanTree,
     client_index: usize,
 }
 
@@ -97,7 +97,7 @@ impl Session {
             paths,
             spans: SpanState::new(),
             config,
-            tree: tree::Span::new(),
+            tree: tree::SpanTree::new(),
             client_index,
         })
     }
@@ -171,6 +171,21 @@ impl Session {
         }
     }
 
+    fn print_path(&self, mut id: u32) {
+        let whatever = id;
+        let mut components = Vec::new();
+        let path = self.spans.get_data(id).map(|v| v.metadata.name.as_ref()).unwrap_or("");
+        components.push(path);
+        while let Some(component) = self.tree.as_ref().find_parent(id) {
+            let path = self.spans.get_data(component).map(|v| v.metadata.name.as_ref()).unwrap_or("root");
+            components.push(path);
+            id = component;
+        }
+        components.reverse();
+        let str = components.join("/");
+        broker_line(Type::SpanPath, self.client_index, format!("{} {}", whatever, str));
+    }
+
     pub async fn get_error(&mut self) -> Result<()> {
         self.manager.get_error().await
     }
@@ -188,7 +203,7 @@ impl Session {
                 self.tree
                     .add_node(tree::Span::with_metadata(id.id, metadata.clone()));
                 self.spans.alloc_span(id.id, metadata);
-                //TODO: Synchronize tree with GUI sessions
+                self.print_path(id.id);
             }
             nt::Command::SpanInit {
                 span,
@@ -206,15 +221,17 @@ impl Session {
                     },
                 );
                 if let Some(parent) = parent {
-                    self.tree.relocate_node(span.id, parent.id);
+                    if self.tree.relocate_node(span.id, parent.id) {
+                        self.print_path(span.id);
+                    }
                 }
-                //TODO: Synchronize tree with GUI sessions
             }
             nt::Command::SpanFollows { span, follows } => {
-                if let Some(parent) = self.tree.find_parent(follows.id) {
-                    self.tree.relocate_node(span.id, parent);
+                if let Some(parent) = self.tree.as_ref().find_parent(follows.id) {
+                    if self.tree.relocate_node(span.id, parent) {
+                        self.print_path(span.id);
+                    }
                 }
-                //TODO: Synchronize tree with GUI sessions
             }
             nt::Command::SpanValues {
                 span,
@@ -278,7 +295,7 @@ impl Session {
             nt::Command::SpanFree(id) => {
                 if let Some(mut data) = self.spans.free_instance(&id) {
                     if self.config.has_inheritance() {
-                        if let Some(parent) = self.tree.find_parent(id.id) {
+                        if let Some(parent) = self.tree.as_ref().find_parent(id.id) {
                             if let Some(data1) = self.spans.get_data(parent) {
                                 if let Some(parent) = self.spans.get_any_instance(parent) {
                                     data.value_set.inherit_from(
