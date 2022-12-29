@@ -55,7 +55,7 @@ async fn handle_connection(
 pub struct Client {
     stop_signal: Option<oneshot::Sender<()>>,
     index: usize,
-    connection_string: String
+    connection_string: String,
 }
 
 impl Client {
@@ -162,7 +162,11 @@ impl ClientTask {
         Ok(cmd)
     }
 
-    async fn main_loop(&mut self, session: &mut Session, mut stop_signal: oneshot::Receiver<()>) -> Result<()> {
+    async fn main_loop(
+        &mut self,
+        session: &mut Session,
+        mut stop_signal: oneshot::Receiver<()>,
+    ) -> Result<()> {
         loop {
             tokio::select! {
                 res = session.get_error() => res?,

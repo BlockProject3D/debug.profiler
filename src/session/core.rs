@@ -26,11 +26,11 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use chrono::{Local, NaiveDateTime, TimeZone};
 use serde::Deserialize;
 use std::io::Result;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::{Local, NaiveDateTime, TimeZone};
 
 use tokio::fs::File;
 use tokio::io::{AsyncWriteExt, BufWriter};
@@ -174,16 +174,28 @@ impl Session {
     fn print_path(&self, mut id: u32) {
         let whatever = id;
         let mut components = Vec::new();
-        let path = self.spans.get_data(id).map(|v| v.metadata.name.as_ref()).unwrap_or("");
+        let path = self
+            .spans
+            .get_data(id)
+            .map(|v| v.metadata.name.as_ref())
+            .unwrap_or("");
         components.push(path);
         while let Some(component) = self.tree.as_ref().find_parent(id) {
-            let path = self.spans.get_data(component).map(|v| v.metadata.name.as_ref()).unwrap_or("root");
+            let path = self
+                .spans
+                .get_data(component)
+                .map(|v| v.metadata.name.as_ref())
+                .unwrap_or("root");
             components.push(path);
             id = component;
         }
         components.reverse();
         let str = components.join("/");
-        broker_line(Type::SpanPath, self.client_index, format!("{} {}", whatever, str));
+        broker_line(
+            Type::SpanPath,
+            self.client_index,
+            format!("{} {}", whatever, str),
+        );
     }
 
     pub async fn get_error(&mut self) -> Result<()> {
@@ -198,7 +210,9 @@ impl Session {
         match cmd {
             nt::Command::SpanAlloc { id, metadata } => {
                 let metadata = Arc::new(metadata);
-                self.manager.write_span(id.id, Span::Metadata(metadata.clone())).await;
+                self.manager
+                    .write_span(id.id, Span::Metadata(metadata.clone()))
+                    .await;
                 self.print_span(id.id, &metadata);
                 self.tree
                     .add_node(tree::Span::with_metadata(id.id, metadata.clone()));
@@ -276,7 +290,12 @@ impl Session {
                         }
                     }
                 }
-                self.manager.write_span(span.id, Span::Event(span.instance, msg.clone(), value_set.clone())).await;
+                self.manager
+                    .write_span(
+                        span.id,
+                        Span::Event(span.instance, msg.clone(), value_set.clone()),
+                    )
+                    .await;
                 self.print_event(span.id, msg, value_set);
             }
             nt::Command::SpanEnter(id) => {
@@ -306,7 +325,9 @@ impl Session {
                             }
                         }
                     }
-                    self.manager.write_span(id.id, Span::Run(id.instance, data)).await;
+                    self.manager
+                        .write_span(id.id, Span::Run(id.instance, data))
+                        .await;
                 }
                 self.print_data_update(id.id);
             }

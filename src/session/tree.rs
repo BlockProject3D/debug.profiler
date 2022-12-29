@@ -26,8 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::{collections::VecDeque, io::Result, sync::Arc};
 use std::collections::HashMap;
+use std::{collections::VecDeque, io::Result, sync::Arc};
 
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
@@ -128,7 +128,7 @@ impl Default for Span {
 #[derive(Default)]
 pub struct SpanTree {
     root: Span,
-    node_to_parent: HashMap<u32, u32>
+    node_to_parent: HashMap<u32, u32>,
 }
 
 impl AsRef<Span> for SpanTree {
@@ -152,7 +152,12 @@ impl SpanTree {
     /// Returns true if the operation has succeeded.
     pub fn relocate_node(&mut self, id: u32, new_parent: u32) -> bool {
         //If the node's parent is already set and the parent has not changed, no need to set it again.
-        if self.node_to_parent.get(&id).map(|v| *v == new_parent).unwrap_or_default() {
+        if self
+            .node_to_parent
+            .get(&id)
+            .map(|v| *v == new_parent)
+            .unwrap_or_default()
+        {
             return false;
         }
         if let Some(node) = self.root.remove_node(id) {

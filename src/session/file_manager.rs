@@ -26,17 +26,17 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::fs::File;
-use tokio::io::{AsyncWriteExt, BufWriter};
-use tokio::sync::{mpsc, oneshot};
 use crate::network_types as nt;
 use crate::session::fd_map::FdMap;
 use crate::session::paths::{Directory, Paths};
 use crate::session::state::SpanInstance;
 use crate::session::utils::{csv_format, ValueSet};
 use std::io::Result;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::fs::File;
+use tokio::io::{AsyncWriteExt, BufWriter};
+use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
 
 const MAX_CHANNEL_SIZE: usize = 512;
@@ -44,7 +44,7 @@ const MAX_CHANNEL_SIZE: usize = 512;
 pub enum Span {
     Metadata(Arc<nt::Metadata>),
     Event(u32, String, ValueSet),
-    Run(u32, SpanInstance)
+    Run(u32, SpanInstance),
 }
 
 pub struct FileManager {
@@ -54,7 +54,7 @@ pub struct FileManager {
     kill_channel: oneshot::Sender<()>,
     handle: JoinHandle<()>,
     project_handle: Option<JoinHandle<()>>,
-    paths: Paths
+    paths: Paths,
 }
 
 impl FileManager {
@@ -70,7 +70,7 @@ impl FileManager {
                 paths: motherfuckingrust2,
                 channel: channel_out,
                 kill_channel: kill_channel_out,
-                error_channel: motherfuckingrust
+                error_channel: motherfuckingrust,
             };
             task.run().await
         });
@@ -81,7 +81,7 @@ impl FileManager {
             kill_channel: kill_channel_in,
             project_handle: None,
             handle,
-            paths
+            paths,
         }
     }
 
@@ -97,11 +97,16 @@ impl FileManager {
             if let Err(e) = write_project_internal(motherfuckingrust, project).await {
                 error_channel.send(e).await.unwrap();
             }
-        }).into();
+        })
+        .into();
     }
 
     pub async fn get_error(&mut self) -> Result<()> {
-        self.error_channel_out.recv().await.map(|e| Err(e)).unwrap_or(Ok(()))
+        self.error_channel_out
+            .recv()
+            .await
+            .map(|e| Err(e))
+            .unwrap_or(Ok(()))
     }
 
     pub async fn stop(mut self) -> Result<()> {
@@ -151,8 +156,7 @@ async fn write_project_internal(path: PathBuf, project: nt::Project) -> Result<(
             .await?;
         buffer
             .write_all(
-                (csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n")
-                    .as_bytes(),
+                (csv_format(["CpuCoreCount", &cpu.core_count.to_string()]) + "\n").as_bytes(),
             )
             .await?;
     }
@@ -164,7 +168,7 @@ struct FileManagerTask {
     paths: Paths,
     channel: mpsc::Receiver<(u32, Span)>,
     error_channel: mpsc::Sender<std::io::Error>,
-    kill_channel: oneshot::Receiver<()>
+    kill_channel: oneshot::Receiver<()>,
 }
 
 impl FileManagerTask {
@@ -193,7 +197,7 @@ impl FileManagerTask {
                 out.write_all(opt_line.as_bytes()).await?;
                 out.write_all(opt_target.as_bytes()).await?;
                 out.write_all(opt_mpath.as_bytes()).await?;
-            },
+            }
             Span::Event(instance_id, msg, value_set) => {
                 let out = self
                     .fd_map
@@ -205,8 +209,9 @@ impl FileManagerTask {
                         + &value_set.clone().to_string()
                         + "\n")
                         .as_bytes(),
-                ).await?;
-            },
+                )
+                .await?;
+            }
             Span::Run(instance_id, instance) => {
                 let out = self
                     .fd_map
@@ -225,7 +230,8 @@ impl FileManagerTask {
                         + &instance.value_set.clone().to_string()
                         + "\n")
                         .as_bytes(),
-                ).await?;
+                )
+                .await?;
             }
         }
         Ok(())

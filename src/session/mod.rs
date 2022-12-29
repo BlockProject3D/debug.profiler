@@ -28,11 +28,11 @@
 
 mod core;
 mod fd_map;
+mod file_manager;
 mod paths;
 mod state;
 mod tree;
 mod utils;
-mod file_manager;
 
 pub use self::core::Config;
 pub use self::core::Session;

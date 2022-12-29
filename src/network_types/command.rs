@@ -63,7 +63,6 @@ pub struct Project {
     pub target: TargetInfo,
     pub command_line: String,
     pub cpu: Option<CpuInfo>,
-
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
