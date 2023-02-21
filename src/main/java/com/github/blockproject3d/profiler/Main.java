@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,21 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use std::sync::Arc;
-use druid::{Data, Lens};
-use druid::im::Vector;
-use crate::state::{Event, SpanLogEntry};
+package com.github.blockproject3d.profiler;
 
-//The state for an events window.
-#[derive(Clone, Data, Lens)]
-pub struct StateEvents {
-    pub selected_event: Arc<Event>,
-    pub events: Vector<Arc<Event>>
-}
-
-//The state for a history window.
-#[derive(Clone, Data, Lens)]
-pub struct StateHistory {
-    pub selected_history: SpanLogEntry,
-    pub history: Vector<SpanLogEntry>
+public class Main {
+    public static void main(String[] args) {
+        new MainWindow();
+    }
 }

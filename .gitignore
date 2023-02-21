@@ -10,6 +10,7 @@ versionfile.txt
 # IDE files
 .idea
 .vscode
+*.iml
 
 # Apple specific
 .DS_Store

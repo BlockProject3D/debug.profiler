@@ -1,4 +1,4 @@
-// Copyright (c) 2022, BlockProject 3D
+// Copyright (c) 2023, BlockProject 3D
 //
 // All rights reserved.
 //
@@ -26,47 +26,18 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-use druid::{Color, Data, FontDescriptor, FontFamily, FontWeight, Widget};
-use druid::widget::{Flex, Label};
-use crate::thread::network_types::Value;
+package com.github.blockproject3d.profiler;
 
-pub fn bold_font() -> FontDescriptor {
-    FontDescriptor::new(FontFamily::SYSTEM_UI)
-        .with_weight(FontWeight::BOLD)
-        .with_size(20.0)
-}
+import javax.swing.*;
+import java.awt.*;
 
-pub fn small_bold_font() -> FontDescriptor {
-    FontDescriptor::new(FontFamily::SYSTEM_UI)
-        .with_size(16.0)
-        .with_weight(FontWeight::BOLD)
-}
-
-pub fn build_box<T: Data>(name: &str) -> Flex<T> {
-    let font = bold_font();
-    Flex::column()
-        .with_child(Label::new(name).with_font(font.clone()))
-        .with_spacer(5.0)
-}
-
-pub fn build_bool_view<T: Data>(val: bool) -> impl Widget<T> {
-    match val {
-        true => Label::new("Yes").with_text_color(Color::rgb8(0, 255, 0)),
-        false => Label::new("No").with_text_color(Color::rgb8(255, 0, 0))
+public class MainWindow extends JFrame {
+    public MainWindow() {
+        super("BPX Debugger");
+        //setMaximumSize(new Dimension(1024, 768));
+        setSize(1024, 768);
+        setLayout(new FlowLayout());
+        getContentPane().add(new Button("Test button"));
+        setVisible(true);
     }
-}
-
-//Yay rust is buggy broken: using impl Widget makes it reject it, but Flex<T> works wtf!!
-pub fn build_values_view<'a, T: Data>(iter: impl Iterator<Item = (&'a String, &'a Value)>) -> Flex<T> {
-    let name_font = small_bold_font();
-    let mut flex = Flex::column();
-    for (name, value) in iter {
-        flex.add_child(
-            Flex::row()
-                .with_child(Label::new(name.clone()).with_font(name_font.clone()))
-                .with_spacer(15.5)
-                .with_child(Label::new(value.to_string()))
-        );
-    }
-    flex
 }
