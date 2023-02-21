@@ -26,18 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler;
+package com.github.blockproject3d.profiler.network.protocol;
 
-import javax.swing.*;
-import java.awt.*;
-
-public class MainWindow extends JFrame {
-    public MainWindow() {
-        super("BP3D Profiler");
-        //setMaximumSize(new Dimension(1024, 768));
-        setSize(1024, 768);
-        setLayout(new FlowLayout());
-        getContentPane().add(new Button("Test button"));
-        setVisible(true);
+public class SignatureMismatchException extends Exception {
+    public SignatureMismatchException() {
+        super("Protocol signature mismatch");
     }
 }

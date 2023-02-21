@@ -26,18 +26,36 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler;
+package com.github.blockproject3d.profiler.network.protocol;
 
-import javax.swing.*;
-import java.awt.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
-public class MainWindow extends JFrame {
-    public MainWindow() {
-        super("BP3D Profiler");
-        //setMaximumSize(new Dimension(1024, 768));
-        setSize(1024, 768);
-        setLayout(new FlowLayout());
-        getContentPane().add(new Button("Test button"));
-        setVisible(true);
+public class Protocol {
+    public final String name;
+    public final Version version;
+
+    public Protocol(String name, Version version) {
+        this.name = name.toUpperCase();
+        byte[] bytes = this.name.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length != 4)
+            throw new IllegalArgumentException("The name of a BP3D protocol MUST always be 4 bytes");
+        this.version = version;
+    }
+
+    public void initialHandshake(InputStream in, OutputStream out) throws IOException, VersionMismatchException, ProtocolMismatchException, SignatureMismatchException {
+        byte[] buffer = new byte[40]; //The hello packet is always 40 bytes long.
+        if (in.read(buffer) != 40 || buffer[0] != 'B' || buffer[1] != 'P' || buffer[2] != '3' || buffer[3] != 'D')
+            throw new SignatureMismatchException();
+        String name = new String(buffer, 4, 4, StandardCharsets.UTF_8);
+        if (!name.equals(this.name))
+            throw new ProtocolMismatchException(name, this.name);
+        Version other = new Version(buffer, 8);
+        if (!this.version.equals(other))
+            throw new VersionMismatchException(other, this.version);
+        this.version.getBytes(buffer, 8);
+        out.write(buffer);
     }
 }
