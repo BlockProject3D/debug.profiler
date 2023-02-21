@@ -48,7 +48,7 @@ public class Version {
     }
 
     public Version(byte[] buffer, int offset) {
-        //the major version is a u64.
+        //the major version is an u64.
         this.major = ByteBuffer.wrap(buffer, offset, 8).order(ByteOrder.LITTLE_ENDIAN).getLong();
         //24 bytes for the pre-release string
         int len = 0;
@@ -60,13 +60,13 @@ public class Version {
     public void getBytes(byte[] buffer, int offset) {
         ByteBuffer.wrap(buffer, offset, 8).order(ByteOrder.LITTLE_ENDIAN).putLong(this.major);
         for (int i = 0; i != 24; ++i) {
-            buffer[offset + 8 + i] = 0;
+            buffer[offset + 8 + i] = 0x0;
         }
         if (this.preRelease != null) {
             byte[] bytes = this.preRelease.getBytes(StandardCharsets.UTF_8);
             int len = Math.min(bytes.length, 24);
             for (int i = 0; i != len; ++i) {
-                buffer[i + offset + 8 + i] = bytes[i];
+                buffer[offset + 8 + i] = bytes[i];
             }
         }
     }
