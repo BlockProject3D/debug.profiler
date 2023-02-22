@@ -33,8 +33,6 @@ import java.util.ArrayList;
 public abstract class CompoundMessage implements IMessage {
     protected ArrayList<IMessage> components = new ArrayList<>();
 
-    protected abstract void load();
-
     @Override
     public int getHeaderSize() {
         int len = 0;
@@ -59,8 +57,6 @@ public abstract class CompoundMessage implements IMessage {
             component.loadHeader(header, offset);
             offset += component.getHeaderSize();
         }
-        if (getPayloadSize() <= 0)
-            load();
     }
 
     @Override
@@ -69,6 +65,5 @@ public abstract class CompoundMessage implements IMessage {
             component.loadPayload(payload, offset);
             offset += component.getPayloadSize();
         }
-        load();
     }
 }
