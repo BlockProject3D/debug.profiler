@@ -35,7 +35,7 @@ public interface IMessage {
 
     boolean isTerminate();
 
-    void loadHeader(byte[] header);
+    void loadHeader(byte[] header, int offset);
 
-    void loadPayload(byte[] payload);
+    void loadPayload(byte[] payload, int offset);
 }

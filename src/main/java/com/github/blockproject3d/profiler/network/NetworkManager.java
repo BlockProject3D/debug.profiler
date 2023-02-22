@@ -81,11 +81,11 @@ public class NetworkManager implements Runnable {
             return null;
         byte[] header = new byte[msg.getHeaderSize()];
         stream.readFully(header);
-        msg.loadHeader(header);
+        msg.loadHeader(header, 0);
         if (msg.getPayloadSize() > 0) {
             byte[] payload = new byte[msg.getPayloadSize()];
             stream.readFully(payload);
-            msg.loadPayload(payload);
+            msg.loadPayload(payload, 0);
         }
         return msg;
     }
