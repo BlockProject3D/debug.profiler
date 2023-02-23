@@ -102,6 +102,7 @@ public class NetworkManager implements Runnable {
                     if (msg != null) {
                         if (msg.isTerminate())
                             terminate_msg = true;
+                        LOGGER.debug("New message loaded: {}", msg);
                         messageQueue.put(msg);
                     }
                 }

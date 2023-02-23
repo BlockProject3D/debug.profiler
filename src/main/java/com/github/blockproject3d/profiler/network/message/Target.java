@@ -26,42 +26,33 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
-import com.github.blockproject3d.profiler.network.message.Project;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public class Target extends CompoundMessage {
+    private final Vchar os = new Vchar();
+    private final Vchar family = new Vchar();
+    private final Vchar arch = new Vchar();
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
+    public Target() {
+        components.add(os);
+        components.add(family);
+        components.add(arch);
     }
 
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
+    public String getOs() {
+        return os.getData();
     }
 
-    static {
-        register(0, Project.class);
+    public String getFamily() {
+        return family.getData();
+    }
+
+    public String getArch() {
+        return arch.getData();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
     }
 }

@@ -26,42 +26,52 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
-import com.github.blockproject3d.profiler.network.message.Project;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public class Project extends CompoundMessage {
+    private final Vchar appName = new Vchar();
+    private final Vchar name = new Vchar();
+    private final Vchar version = new Vchar();
+    private final Vchar commandLine = new Vchar();
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
+    private final Target target = new Target();
+    private final Option<Cpu> cpu = new Option<>(new Cpu());
 
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
+    public Project() {
+        components.add(appName);
+        components.add(name);
+        components.add(version);
+        components.add(commandLine);
+        components.add(target);
+        components.add(cpu);
     }
 
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
+    public String getAppName() {
+        return appName.getData();
     }
 
-    static {
-        register(0, Project.class);
+    public String getName() {
+        return name.getData();
+    }
+
+    public String getVersion() {
+        return version.getData();
+    }
+
+    public String getCommandLine() {
+        return commandLine.getData();
+    }
+
+    public Target getTarget() {
+        return target;
+    }
+
+    public Cpu getCpu() {
+        return cpu.getValue();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
     }
 }

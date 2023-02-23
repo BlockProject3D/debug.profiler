@@ -26,42 +26,41 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
-import com.github.blockproject3d.profiler.network.message.Project;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
+public class Cpu extends CompoundMessage {
+    private final Vchar name = new Vchar();
+    private long coreCount;
 
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
+    public Cpu() {
+        components.add(name);
     }
 
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
+    public String getName() {
+        return name.getData();
     }
 
-    static {
-        register(0, Project.class);
+    public long getCoreCount() {
+        return coreCount;
+    }
+
+    @Override
+    public int getHeaderSize() {
+        return super.getHeaderSize() + 4;
+    }
+
+    @Override
+    public void loadHeader(byte[] header, int offset) {
+        super.loadHeader(header, offset);
+        int neg = ByteBuffer.wrap(header, offset + name.getHeaderSize(), 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        coreCount = (long)neg & 0x00000000FFFFFFFFL;
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
     }
 }
