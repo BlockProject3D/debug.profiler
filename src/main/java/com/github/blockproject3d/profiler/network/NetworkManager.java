@@ -47,6 +47,8 @@ public class NetworkManager implements Runnable {
     private final String ip;
     private final int port;
 
+    private boolean running = true;
+
     public NetworkManager(String ip, int port) {
         this.ip = ip;
         this.port = port;
@@ -61,6 +63,10 @@ public class NetworkManager implements Runnable {
 
     public IMessage pollMessage() {
         return messageQueue.poll();
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 
     private Socket connect() {
@@ -115,5 +121,6 @@ public class NetworkManager implements Runnable {
                 LOGGER.error("Failed to close socket", e);
             }
         }
+        running = false;
     }
 }
