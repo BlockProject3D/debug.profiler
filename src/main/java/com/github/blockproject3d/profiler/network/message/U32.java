@@ -28,25 +28,38 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
-public class Cpu extends CompoundMessage {
-    private final Vchar name = new Vchar();
-    private final U32 coreCount = new U32();
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-    public Cpu() {
-        components.add(name);
-        components.add(coreCount);
+public class U32 implements IMessage {
+    private long value;
+
+    public long getValue() {
+        return value;
     }
 
-    public String getName() {
-        return name.getData();
+    @Override
+    public int getHeaderSize() {
+        return 4;
     }
 
-    public long getCoreCount() {
-        return coreCount.getValue();
+    @Override
+    public int getPayloadSize() {
+        return 0;
     }
 
     @Override
     public boolean isTerminate() {
         return false;
+    }
+
+    @Override
+    public void loadHeader(byte[] header, int offset) {
+        int neg = ByteBuffer.wrap(header, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        value = (long)neg & 0x00000000FFFFFFFFL;
+    }
+
+    @Override
+    public void loadPayload(byte[] payload, int offset) {
     }
 }
