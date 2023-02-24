@@ -31,6 +31,7 @@ package com.github.blockproject3d.profiler.network;
 import com.github.blockproject3d.profiler.network.message.IMessage;
 import com.github.blockproject3d.profiler.network.message.Project;
 import com.github.blockproject3d.profiler.network.message.SpanAlloc;
+import com.github.blockproject3d.profiler.network.message.SpanParent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,5 +66,6 @@ public class MessageRegistry {
     static {
         register(0, Project.class);
         register(1, SpanAlloc.class);
+        register(2, SpanParent.class);
     }
 }
