@@ -26,28 +26,41 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.component;
 
-public class Option<T extends IMessage> implements IMessage {
-    private final T msg;
-    private boolean isValid = false;
+import com.github.blockproject3d.profiler.network.message.IMessage;
 
-    public Option(T msg) {
-        this.msg = msg;
+import java.util.HashMap;
+
+public class LevelHeader implements IMessage {
+    private static final HashMap<Byte, Level> LEVELS = new HashMap<>();
+
+    public enum Level {
+        Trace(0),
+        Debug(1),
+        Info(2),
+        Warning(3),
+        Error(4);
+
+        Level(int code) {
+            LEVELS.put((byte)code, this);
+        }
     }
 
-    public T getValue() {
-        return isValid ? msg : null;
+    private Level level = Level.Info;
+
+    public Level getLevel() {
+        return level;
     }
 
     @Override
     public int getHeaderSize() {
-        return 1 + msg.getHeaderSize();
+        return 1;
     }
 
     @Override
     public int getPayloadSize() {
-        return !isValid ? 0 : msg.getPayloadSize();
+        return 0;
     }
 
     @Override
@@ -57,15 +70,13 @@ public class Option<T extends IMessage> implements IMessage {
 
     @Override
     public void loadHeader(byte[] header, int offset) {
-        if (header[offset] == 1) {
-            msg.loadHeader(header, offset + 1);
-            isValid = true;
+        Level level = LEVELS.get(header[offset]);
+        if (level != null) {
+            this.level = level;
         }
     }
 
     @Override
     public void loadPayload(byte[] payload, int offset) {
-        if (isValid)
-            msg.loadPayload(payload, offset);
     }
 }

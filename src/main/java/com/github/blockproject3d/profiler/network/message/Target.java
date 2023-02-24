@@ -28,6 +28,8 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
+import com.github.blockproject3d.profiler.network.message.component.Vchar;
+
 public class Target extends CompoundMessage {
     private final Vchar os = new Vchar();
     private final Vchar family = new Vchar();

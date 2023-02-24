@@ -26,55 +26,48 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.component;
 
-import com.github.blockproject3d.profiler.network.message.component.Option;
-import com.github.blockproject3d.profiler.network.message.component.Vchar;
+import com.github.blockproject3d.profiler.network.message.IMessage;
 
-public class Project extends CompoundMessage {
-    private final Vchar appName = new Vchar();
-    private final Vchar name = new Vchar();
-    private final Vchar version = new Vchar();
-    private final Vchar commandLine = new Vchar();
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
-    private final Target target = new Target();
-    private final Option<Cpu> cpu = new Option<>(new Cpu());
+public class Vchar implements IMessage {
+    private int length;
+    private int offset;
 
-    public Project() {
-        components.add(appName);
-        components.add(name);
-        components.add(version);
-        components.add(commandLine);
-        components.add(target);
-        components.add(cpu);
+    private String data;
+
+    public String getData() {
+        return data;
     }
 
-    public String getAppName() {
-        return appName.getData();
+    @Override
+    public int getHeaderSize() {
+        return 4; //u16 length + u16 offset
     }
 
-    public String getName() {
-        return name.getData();
-    }
-
-    public String getVersion() {
-        return version.getData();
-    }
-
-    public String getCommandLine() {
-        return commandLine.getData();
-    }
-
-    public Target getTarget() {
-        return target;
-    }
-
-    public Cpu getCpu() {
-        return cpu.getValue();
+    @Override
+    public int getPayloadSize() {
+        return length;
     }
 
     @Override
     public boolean isTerminate() {
         return false;
+    }
+
+    @Override
+    public void loadHeader(byte[] header, int offset) {
+        ByteBuffer buf = ByteBuffer.wrap(header, offset, getHeaderSize()).order(ByteOrder.LITTLE_ENDIAN);
+        this.length = (int)buf.getShort() & 0x0000FFFF;
+        this.offset = (int)buf.getShort() & 0x0000FFFF;
+    }
+
+    @Override
+    public void loadPayload(byte[] payload, int offset) {
+        data = new String(payload, this.offset, this.length, StandardCharsets.UTF_8);
     }
 }

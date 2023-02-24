@@ -28,6 +28,9 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
+import com.github.blockproject3d.profiler.network.message.component.U32;
+import com.github.blockproject3d.profiler.network.message.component.Vchar;
+
 public class Cpu extends CompoundMessage {
     private final Vchar name = new Vchar();
     private final U32 coreCount = new U32();

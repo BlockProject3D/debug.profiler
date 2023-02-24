@@ -26,26 +26,30 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.component;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
+import com.github.blockproject3d.profiler.network.message.IMessage;
 
-public class U32 implements IMessage {
-    private long value;
+public class Option<T extends IMessage> implements IMessage {
+    private final T msg;
+    private boolean isValid = false;
 
-    public long getValue() {
-        return value;
+    public Option(T msg) {
+        this.msg = msg;
+    }
+
+    public T getValue() {
+        return isValid ? msg : null;
     }
 
     @Override
     public int getHeaderSize() {
-        return 4;
+        return 1 + msg.getHeaderSize();
     }
 
     @Override
     public int getPayloadSize() {
-        return 0;
+        return !isValid ? 0 : msg.getPayloadSize();
     }
 
     @Override
@@ -55,11 +59,15 @@ public class U32 implements IMessage {
 
     @Override
     public void loadHeader(byte[] header, int offset) {
-        int neg = ByteBuffer.wrap(header, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
-        value = (long)neg & 0x00000000FFFFFFFFL;
+        if (header[offset] == 1) {
+            msg.loadHeader(header, offset + 1);
+            isValid = true;
+        }
     }
 
     @Override
     public void loadPayload(byte[] payload, int offset) {
+        if (isValid)
+            msg.loadPayload(payload, offset);
     }
 }

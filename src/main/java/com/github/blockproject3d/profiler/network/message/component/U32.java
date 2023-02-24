@@ -26,30 +26,28 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.component;
+
+import com.github.blockproject3d.profiler.network.message.IMessage;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 
-public class Vchar implements IMessage {
-    private int length;
-    private int offset;
+public class U32 implements IMessage {
+    private long value;
 
-    private String data;
-
-    public String getData() {
-        return data;
+    public long getValue() {
+        return value;
     }
 
     @Override
     public int getHeaderSize() {
-        return 4; //u16 length + u16 offset
+        return 4;
     }
 
     @Override
     public int getPayloadSize() {
-        return length;
+        return 0;
     }
 
     @Override
@@ -59,13 +57,11 @@ public class Vchar implements IMessage {
 
     @Override
     public void loadHeader(byte[] header, int offset) {
-        ByteBuffer buf = ByteBuffer.wrap(header, offset, getHeaderSize()).order(ByteOrder.LITTLE_ENDIAN);
-        this.length = (int)buf.getShort() & 0x0000FFFF;
-        this.offset = (int)buf.getShort() & 0x0000FFFF;
+        int neg = ByteBuffer.wrap(header, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
+        value = (long)neg & 0x00000000FFFFFFFFL;
     }
 
     @Override
     public void loadPayload(byte[] payload, int offset) {
-        data = new String(payload, this.offset, this.length, StandardCharsets.UTF_8);
     }
 }
