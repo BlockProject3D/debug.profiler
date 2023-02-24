@@ -26,44 +26,10 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
-    }
-
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
-    }
-
-    static {
-        register(0, Project.class);
-        register(1, SpanAlloc.class);
-        register(2, SpanParent.class);
-        register(3, SpanFollows.class);
+public class SpanFollows extends SpanParent {
+    public long getFollows() {
+        return getParentNode();
     }
 }
