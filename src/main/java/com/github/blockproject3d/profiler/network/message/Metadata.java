@@ -26,44 +26,56 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
-import com.github.blockproject3d.profiler.network.message.Project;
-import com.github.blockproject3d.profiler.network.message.SpanAlloc;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.blockproject3d.profiler.network.message.component.LevelHeader;
+import com.github.blockproject3d.profiler.network.message.component.Option;
+import com.github.blockproject3d.profiler.network.message.component.U32;
+import com.github.blockproject3d.profiler.network.message.component.Vchar;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
+public class Metadata extends CompoundMessage {
+    private final LevelHeader level = new LevelHeader();
+    private final Option<U32> line = new Option<>(new U32());
+    private final Vchar name = new Vchar();
+    private final Vchar target = new Vchar();
+    private final Option<Vchar> modulePath = new Option<>(new Vchar());
+    private final Option<Vchar> file = new Option<>(new Vchar());
 
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
+    public Metadata() {
+        components.add(level);
+        components.add(line);
+        components.add(name);
+        components.add(target);
+        components.add(modulePath);
+        components.add(file);
     }
 
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
+    public LevelHeader.Level getLevel() {
+        return level.getLevel();
     }
 
-    static {
-        register(0, Project.class);
-        register(1, SpanAlloc.class);
+    public long getLine() {
+        return line.getValue() == null ? -1 : line.getValue().getValue();
+    }
+
+    public String getName() {
+        return name.getData();
+    }
+
+    public String getTarget() {
+        return target.getData();
+    }
+
+    public String getModulePath() {
+        return modulePath.getValue() == null ? null : modulePath.getValue().getData();
+    }
+
+    public String getFile() {
+        return file.getValue() == null ? null : file.getValue().getData();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
     }
 }

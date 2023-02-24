@@ -26,44 +26,29 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
-import com.github.blockproject3d.profiler.network.message.Project;
-import com.github.blockproject3d.profiler.network.message.SpanAlloc;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.blockproject3d.profiler.network.message.component.U32;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
+public class SpanAlloc extends CompoundMessage {
+    private final U32 id = new U32();
+    private final Metadata metadata = new Metadata();
 
-public class MessageRegistry {
-    private static final Logger LOGGER = LoggerFactory.getLogger(MessageRegistry.class);
-
-    private static final HashMap<Byte, Class<? extends IMessage>> REGISTRY = new HashMap<>();
-
-    public static void register(int type, Class<? extends IMessage> msgClass) {
-        if (REGISTRY.containsKey((byte)type))
-            throw new ArrayStoreException("The message type '" + (byte)type + "' is already registered");
-        REGISTRY.put((byte)type, msgClass);
+    public SpanAlloc() {
+        components.add(id);
+        components.add(metadata);
     }
 
-    public static IMessage get(byte type) {
-        if (!REGISTRY.containsKey(type)) {
-            LOGGER.error("Unknown message type '{}'", type);
-            return null;
-        }
-        LOGGER.debug("Instantiating message with type '{}'", type);
-        try {
-            return REGISTRY.get(type).getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            LOGGER.error("Failed to instantiate message", e);
-            return null;
-        }
+    public Metadata getMetadata() {
+        return metadata;
     }
 
-    static {
-        register(0, Project.class);
-        register(1, SpanAlloc.class);
+    public long getId() {
+        return id.getValue();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
     }
 }
