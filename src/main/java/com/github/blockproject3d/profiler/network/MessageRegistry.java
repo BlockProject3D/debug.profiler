@@ -33,6 +33,7 @@ import com.github.blockproject3d.profiler.network.message.header.SpanFollows;
 import com.github.blockproject3d.profiler.network.message.header.SpanParent;
 import com.github.blockproject3d.profiler.network.message.payload.Project;
 import com.github.blockproject3d.profiler.network.message.payload.SpanAlloc;
+import com.github.blockproject3d.profiler.network.message.payload.SpanEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,5 +70,6 @@ public class MessageRegistry {
         register(1, SpanAlloc.class);
         register(2, SpanParent.class);
         register(3, SpanFollows.class);
+        register(4, SpanEvent.class);
     }
 }
