@@ -26,8 +26,30 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.payload;
 
-public interface IMessage {
-    boolean isTerminate();
+import com.github.blockproject3d.profiler.network.message.CompoundPayloadMessage;
+import com.github.blockproject3d.profiler.network.message.component.U32;
+
+public class SpanAlloc extends CompoundPayloadMessage {
+    private final U32 id = new U32();
+    private final Metadata metadata = new Metadata();
+
+    public SpanAlloc() {
+        add(id);
+        add(metadata);
+    }
+
+    public Metadata getMetadata() {
+        return metadata;
+    }
+
+    public long getId() {
+        return id.getValue();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
+    }
 }

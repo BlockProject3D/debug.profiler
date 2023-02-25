@@ -28,6 +28,8 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
-public interface IMessage {
-    boolean isTerminate();
+public interface IHeaderComponent {
+    int getHeaderSize();
+
+    void loadHeader(byte[] header, int offset);
 }

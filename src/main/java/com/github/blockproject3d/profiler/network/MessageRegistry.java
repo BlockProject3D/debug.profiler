@@ -29,6 +29,10 @@
 package com.github.blockproject3d.profiler.network;
 
 import com.github.blockproject3d.profiler.network.message.*;
+import com.github.blockproject3d.profiler.network.message.header.SpanFollows;
+import com.github.blockproject3d.profiler.network.message.header.SpanParent;
+import com.github.blockproject3d.profiler.network.message.payload.Project;
+import com.github.blockproject3d.profiler.network.message.payload.SpanAlloc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

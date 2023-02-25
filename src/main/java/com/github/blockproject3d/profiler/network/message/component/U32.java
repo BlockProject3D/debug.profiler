@@ -28,12 +28,12 @@
 
 package com.github.blockproject3d.profiler.network.message.component;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
+import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class U32 implements IMessage {
+public class U32 implements IHeaderComponent {
     private long value;
 
     public long getValue() {
@@ -46,22 +46,8 @@ public class U32 implements IMessage {
     }
 
     @Override
-    public int getPayloadSize() {
-        return 0;
-    }
-
-    @Override
-    public boolean isTerminate() {
-        return false;
-    }
-
-    @Override
     public void loadHeader(byte[] header, int offset) {
         int neg = ByteBuffer.wrap(header, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
         value = (long)neg & 0x00000000FFFFFFFFL;
-    }
-
-    @Override
-    public void loadPayload(byte[] payload, int offset) {
     }
 }

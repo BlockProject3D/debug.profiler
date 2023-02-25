@@ -28,11 +28,11 @@
 
 package com.github.blockproject3d.profiler.network.message.component;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
+import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
 
 import java.util.HashMap;
 
-public class LevelHeader implements IMessage {
+public class LevelHeader implements IHeaderComponent {
     private static final HashMap<Byte, Level> LEVELS = new HashMap<>();
 
     public enum Level {
@@ -59,24 +59,10 @@ public class LevelHeader implements IMessage {
     }
 
     @Override
-    public int getPayloadSize() {
-        return 0;
-    }
-
-    @Override
-    public boolean isTerminate() {
-        return false;
-    }
-
-    @Override
     public void loadHeader(byte[] header, int offset) {
         Level level = LEVELS.get(header[offset]);
         if (level != null) {
             this.level = level;
         }
-    }
-
-    @Override
-    public void loadPayload(byte[] payload, int offset) {
     }
 }

@@ -28,8 +28,8 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
-public class SpanFollows extends SpanParent {
-    public long getFollows() {
-        return getParentNode();
-    }
+public interface IPayloadComponent {
+    int getPayloadSize();
+
+    void loadPayload(byte[] payload, int offset);
 }

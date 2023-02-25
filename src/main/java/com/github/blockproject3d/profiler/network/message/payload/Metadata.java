@@ -26,26 +26,53 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.payload;
 
+import com.github.blockproject3d.profiler.network.message.CompoundPayloadMessage;
+import com.github.blockproject3d.profiler.network.message.component.LevelHeader;
+import com.github.blockproject3d.profiler.network.message.component.Option;
 import com.github.blockproject3d.profiler.network.message.component.U32;
 import com.github.blockproject3d.profiler.network.message.component.Vchar;
 
-public class Cpu extends CompoundMessage {
+public class Metadata extends CompoundPayloadMessage {
+    private final LevelHeader level = new LevelHeader();
+    private final Option<U32> line = new Option<>(new U32());
     private final Vchar name = new Vchar();
-    private final U32 coreCount = new U32();
+    private final Vchar target = new Vchar();
+    private final Option<Vchar> modulePath = new Option<>(new Vchar());
+    private final Option<Vchar> file = new Option<>(new Vchar());
 
-    public Cpu() {
-        components.add(name);
-        components.add(coreCount);
+    public Metadata() {
+        add(level);
+        add(line);
+        add(name);
+        add(target);
+        add(modulePath);
+        add(file);
+    }
+
+    public LevelHeader.Level getLevel() {
+        return level.getLevel();
+    }
+
+    public long getLine() {
+        return line.getValue() == null ? -1 : line.getValue().getValue();
     }
 
     public String getName() {
         return name.getData();
     }
 
-    public long getCoreCount() {
-        return coreCount.getValue();
+    public String getTarget() {
+        return target.getData();
+    }
+
+    public String getModulePath() {
+        return modulePath.getValue() == null ? null : modulePath.getValue().getData();
+    }
+
+    public String getFile() {
+        return file.getValue() == null ? null : file.getValue().getData();
     }
 
     @Override

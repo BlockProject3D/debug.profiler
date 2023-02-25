@@ -28,54 +28,50 @@
 
 package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.component.LevelHeader;
-import com.github.blockproject3d.profiler.network.message.component.Option;
-import com.github.blockproject3d.profiler.network.message.component.U32;
-import com.github.blockproject3d.profiler.network.message.component.Vchar;
+import java.util.ArrayList;
 
-public class Metadata extends CompoundMessage {
-    private final LevelHeader level = new LevelHeader();
-    private final Option<U32> line = new Option<>(new U32());
-    private final Vchar name = new Vchar();
-    private final Vchar target = new Vchar();
-    private final Option<Vchar> modulePath = new Option<>(new Vchar());
-    private final Option<Vchar> file = new Option<>(new Vchar());
+public abstract class CompoundPayloadMessage extends CompoundMessage implements IPayloadComponent {
+    private final ArrayList<IHeaderComponent> headers = new ArrayList<>();
+    private final ArrayList<IPayloadComponent> payloads = new ArrayList<>();
 
-    public Metadata() {
-        components.add(level);
-        components.add(line);
-        components.add(name);
-        components.add(target);
-        components.add(modulePath);
-        components.add(file);
-    }
-
-    public LevelHeader.Level getLevel() {
-        return level.getLevel();
-    }
-
-    public long getLine() {
-        return line.getValue() == null ? -1 : line.getValue().getValue();
-    }
-
-    public String getName() {
-        return name.getData();
-    }
-
-    public String getTarget() {
-        return target.getData();
-    }
-
-    public String getModulePath() {
-        return modulePath.getValue() == null ? null : modulePath.getValue().getData();
-    }
-
-    public String getFile() {
-        return file.getValue() == null ? null : file.getValue().getData();
+    @Override
+    protected void add(IHeaderComponent component) {
+        headers.add(component);
+        if (component instanceof IPayloadComponent)
+            payloads.add((IPayloadComponent) component);
     }
 
     @Override
-    public boolean isTerminate() {
-        return false;
+    public int getHeaderSize() {
+        int len = 0;
+        for (IHeaderComponent component: headers) {
+            len += component.getHeaderSize();
+        }
+        return len;
+    }
+
+    @Override
+    public int getPayloadSize() {
+        int len = 0;
+        for (IPayloadComponent component: payloads) {
+            len += component.getPayloadSize();
+        }
+        return len;
+    }
+
+    @Override
+    public void loadHeader(byte[] header, int offset) {
+        for (IHeaderComponent component: headers) {
+            component.loadHeader(header, offset);
+            offset += component.getHeaderSize();
+        }
+    }
+
+    @Override
+    public void loadPayload(byte[] payload, int offset) {
+        for (IPayloadComponent component: payloads) {
+            component.loadPayload(payload, offset);
+            offset += component.getPayloadSize();
+        }
     }
 }

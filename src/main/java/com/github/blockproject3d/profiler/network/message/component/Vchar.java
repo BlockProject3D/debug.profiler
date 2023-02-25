@@ -28,13 +28,14 @@
 
 package com.github.blockproject3d.profiler.network.message.component;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
+import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
+import com.github.blockproject3d.profiler.network.message.IPayloadComponent;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
-public class Vchar implements IMessage {
+public class Vchar implements IPayloadComponent, IHeaderComponent {
     private int length;
     private int offset;
 
@@ -52,11 +53,6 @@ public class Vchar implements IMessage {
     @Override
     public int getPayloadSize() {
         return length;
-    }
-
-    @Override
-    public boolean isTerminate() {
-        return false;
     }
 
     @Override

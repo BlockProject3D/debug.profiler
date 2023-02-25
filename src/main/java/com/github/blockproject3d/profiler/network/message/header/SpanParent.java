@@ -26,8 +26,9 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.header;
 
+import com.github.blockproject3d.profiler.network.message.CompoundMessage;
 import com.github.blockproject3d.profiler.network.message.component.U32;
 
 public class SpanParent extends CompoundMessage {
@@ -35,8 +36,8 @@ public class SpanParent extends CompoundMessage {
     private final U32 parentNode = new U32();
 
     public SpanParent() {
-        components.add(id);
-        components.add(parentNode);
+        add(id);
+        add(parentNode);
     }
 
     public long getId() {

@@ -30,40 +30,27 @@ package com.github.blockproject3d.profiler.network.message;
 
 import java.util.ArrayList;
 
-public abstract class CompoundMessage implements IMessage {
-    protected ArrayList<IMessage> components = new ArrayList<>();
+public abstract class CompoundMessage implements IMessage, IHeaderComponent {
+    private final ArrayList<IHeaderComponent> headers = new ArrayList<>();
+
+    protected void add(IHeaderComponent component) {
+        headers.add(component);
+    }
 
     @Override
     public int getHeaderSize() {
         int len = 0;
-        for (IMessage component: components) {
+        for (IHeaderComponent component: headers) {
             len += component.getHeaderSize();
         }
         return len;
     }
 
     @Override
-    public int getPayloadSize() {
-        int len = 0;
-        for (IMessage component: components) {
-            len += component.getPayloadSize();
-        }
-        return len;
-    }
-
-    @Override
     public void loadHeader(byte[] header, int offset) {
-        for (IMessage component: components) {
+        for (IHeaderComponent component: headers) {
             component.loadHeader(header, offset);
             offset += component.getHeaderSize();
-        }
-    }
-
-    @Override
-    public void loadPayload(byte[] payload, int offset) {
-        for (IMessage component: components) {
-            component.loadPayload(payload, offset);
-            offset += component.getPayloadSize();
         }
     }
 }

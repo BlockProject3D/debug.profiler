@@ -28,7 +28,9 @@
 
 package com.github.blockproject3d.profiler.network;
 
+import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
 import com.github.blockproject3d.profiler.network.message.IMessage;
+import com.github.blockproject3d.profiler.network.message.IPayloadComponent;
 import com.github.blockproject3d.profiler.network.protocol.ProtocolMismatchException;
 import com.github.blockproject3d.profiler.network.protocol.SignatureMismatchException;
 import com.github.blockproject3d.profiler.network.protocol.VersionMismatchException;
@@ -85,13 +87,17 @@ public class NetworkManager implements Runnable {
         IMessage msg = MessageRegistry.get(type);
         if (msg == null)
             return null;
-        byte[] header = new byte[msg.getHeaderSize()];
-        stream.readFully(header);
-        msg.loadHeader(header, 0);
-        if (msg.getPayloadSize() > 0) {
-            byte[] payload = new byte[msg.getPayloadSize()];
-            stream.readFully(payload);
-            msg.loadPayload(payload, 0);
+        if (msg instanceof IHeaderComponent head) {
+            byte[] header = new byte[head.getHeaderSize()];
+            stream.readFully(header);
+            head.loadHeader(header, 0);
+        }
+        if (msg instanceof IPayloadComponent payload) {
+            if (payload.getPayloadSize() > 0) {
+                byte[] bytes = new byte[payload.getPayloadSize()];
+                stream.readFully(bytes);
+                payload.loadPayload(bytes, 0);
+            }
         }
         return msg;
     }

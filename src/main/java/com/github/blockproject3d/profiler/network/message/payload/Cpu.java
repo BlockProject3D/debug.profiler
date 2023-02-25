@@ -26,8 +26,31 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message;
+package com.github.blockproject3d.profiler.network.message.payload;
 
-public interface IMessage {
-    boolean isTerminate();
+import com.github.blockproject3d.profiler.network.message.CompoundPayloadMessage;
+import com.github.blockproject3d.profiler.network.message.component.U32;
+import com.github.blockproject3d.profiler.network.message.component.Vchar;
+
+public class Cpu extends CompoundPayloadMessage {
+    private final Vchar name = new Vchar();
+    private final U32 coreCount = new U32();
+
+    public Cpu() {
+        add(name);
+        add(coreCount);
+    }
+
+    public String getName() {
+        return name.getData();
+    }
+
+    public long getCoreCount() {
+        return coreCount.getValue();
+    }
+
+    @Override
+    public boolean isTerminate() {
+        return false;
+    }
 }

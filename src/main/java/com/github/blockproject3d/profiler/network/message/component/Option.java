@@ -28,9 +28,10 @@
 
 package com.github.blockproject3d.profiler.network.message.component;
 
-import com.github.blockproject3d.profiler.network.message.IMessage;
+import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
+import com.github.blockproject3d.profiler.network.message.IPayloadComponent;
 
-public class Option<T extends IMessage> implements IMessage {
+public class Option<T extends IHeaderComponent> implements IHeaderComponent, IPayloadComponent {
     private final T msg;
     private boolean isValid = false;
 
@@ -49,12 +50,10 @@ public class Option<T extends IMessage> implements IMessage {
 
     @Override
     public int getPayloadSize() {
-        return !isValid ? 0 : msg.getPayloadSize();
-    }
-
-    @Override
-    public boolean isTerminate() {
-        return false;
+        if (msg instanceof IPayloadComponent) {
+            return !isValid ? 0 : ((IPayloadComponent) msg).getPayloadSize();
+        }
+        return 0;
     }
 
     @Override
@@ -67,7 +66,9 @@ public class Option<T extends IMessage> implements IMessage {
 
     @Override
     public void loadPayload(byte[] payload, int offset) {
-        if (isValid)
-            msg.loadPayload(payload, offset);
+        if (msg instanceof IPayloadComponent) {
+            if (isValid)
+                ((IPayloadComponent) msg).loadPayload(payload, offset);
+        }
     }
 }
