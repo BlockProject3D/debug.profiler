@@ -31,6 +31,7 @@ package com.github.blockproject3d.profiler.network;
 import com.github.blockproject3d.profiler.network.message.*;
 import com.github.blockproject3d.profiler.network.message.header.SpanFollows;
 import com.github.blockproject3d.profiler.network.message.header.SpanParent;
+import com.github.blockproject3d.profiler.network.message.header.SpanUpdate;
 import com.github.blockproject3d.profiler.network.message.payload.Project;
 import com.github.blockproject3d.profiler.network.message.payload.SpanAlloc;
 import com.github.blockproject3d.profiler.network.message.payload.SpanEvent;
@@ -71,5 +72,6 @@ public class MessageRegistry {
         register(2, SpanParent.class);
         register(3, SpanFollows.class);
         register(4, SpanEvent.class);
+        register(5, SpanUpdate.class);
     }
 }
