@@ -31,6 +31,8 @@ package com.github.blockproject3d.profiler.network;
 import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
 import com.github.blockproject3d.profiler.network.message.IMessage;
 import com.github.blockproject3d.profiler.network.message.IPayloadComponent;
+import com.github.blockproject3d.profiler.network.message.header.ClientConfig;
+import com.github.blockproject3d.profiler.network.message.header.ServerConfig;
 import com.github.blockproject3d.profiler.network.protocol.ProtocolMismatchException;
 import com.github.blockproject3d.profiler.network.protocol.SignatureMismatchException;
 import com.github.blockproject3d.profiler.network.protocol.VersionMismatchException;
@@ -40,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class NetworkManager implements Runnable {
@@ -75,6 +78,20 @@ public class NetworkManager implements Runnable {
         try {
             Socket socket = new Socket(ip, port);
             Constants.PROTOCOL.initialHandshake(socket.getInputStream(), socket.getOutputStream());
+            ServerConfig config = new ServerConfig();
+            readMessage(config, new DataInputStream(socket.getInputStream()));
+            boolean canAccess = false;
+            if (config.getLogsPath() != null) {
+                canAccess = Files.isReadable(config.getLogsPath()) && Files.isWritable(config.getLogsPath());
+            }
+            long maxAveragePoints = 1000000;
+            ClientConfig message = new ClientConfig();
+            byte[] buffer = new byte[message.getSize()];
+            message.setCanAccessPath(canAccess);
+            message.setMaxAveragePoints(maxAveragePoints);
+            message.setMaxRows(maxAveragePoints);
+            message.write(buffer, 0);
+            socket.getOutputStream().write(buffer);
             return socket;
         } catch (IOException | SignatureMismatchException | ProtocolMismatchException | VersionMismatchException e) {
             LOGGER.error("Failed to connect to server", e);
@@ -82,11 +99,7 @@ public class NetworkManager implements Runnable {
         }
     }
 
-    private IMessage readMessage(DataInputStream stream) throws IOException {
-        byte type = stream.readByte();
-        IMessage msg = MessageRegistry.get(type);
-        if (msg == null)
-            return null;
+    private void readMessage(IMessage msg, DataInputStream stream) throws IOException {
         if (msg instanceof IHeaderComponent head) {
             byte[] header = new byte[head.getHeaderSize()];
             stream.readFully(header);
@@ -99,6 +112,14 @@ public class NetworkManager implements Runnable {
                 payload.loadPayload(bytes, 0);
             }
         }
+    }
+
+    private IMessage readMessage(DataInputStream stream) throws IOException {
+        byte type = stream.readByte();
+        IMessage msg = MessageRegistry.get(type);
+        if (msg == null)
+            return null;
+        readMessage(msg, stream);
         return msg;
     }
 
