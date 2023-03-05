@@ -29,12 +29,17 @@
 package com.github.blockproject3d.profiler.network.message.component;
 
 import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
+import com.github.blockproject3d.profiler.network.message.IWritable;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-public class U32 implements IHeaderComponent {
+public class U32 implements IHeaderComponent, IWritable {
     private long value;
+
+    public void setValue(long value) {
+        this.value = value;
+    }
 
     public long getValue() {
         return value;
@@ -49,5 +54,11 @@ public class U32 implements IHeaderComponent {
     public void loadHeader(byte[] header, int offset) {
         int neg = ByteBuffer.wrap(header, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
         value = (long)neg & 0x00000000FFFFFFFFL;
+    }
+
+    @Override
+    public int write(byte[] buffer, int offset) {
+        ByteBuffer.wrap(buffer, offset, 4).order(ByteOrder.LITTLE_ENDIAN).putInt((int)value);
+        return 4;
     }
 }

@@ -26,57 +26,8 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-package com.github.blockproject3d.profiler.network.message.component;
+package com.github.blockproject3d.profiler.network.message;
 
-import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
-import com.github.blockproject3d.profiler.network.message.IWritable;
-
-import java.util.HashMap;
-
-public class LevelHeader implements IHeaderComponent, IWritable {
-    private static final HashMap<Byte, Level> LEVELS = new HashMap<>();
-
-    public enum Level {
-        Trace(0),
-        Debug(1),
-        Info(2),
-        Warning(3),
-        Error(4);
-
-        public final int code;
-
-        Level(int code) {
-            LEVELS.put((byte)code, this);
-            this.code = code;
-        }
-    }
-
-    private Level level = Level.Info;
-
-    public Level getLevel() {
-        return level;
-    }
-
-    public void setLevel(Level level) {
-        this.level = level;
-    }
-
-    @Override
-    public int getHeaderSize() {
-        return 1;
-    }
-
-    @Override
-    public void loadHeader(byte[] header, int offset) {
-        Level level = LEVELS.get(header[offset]);
-        if (level != null) {
-            this.level = level;
-        }
-    }
-
-    @Override
-    public int write(byte[] buffer, int offset) {
-        buffer[offset] = (byte)level.code;
-        return 1;
-    }
+public interface IWritable {
+    int write(byte[] buffer, int offset);
 }

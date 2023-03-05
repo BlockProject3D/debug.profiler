@@ -30,9 +30,10 @@ package com.github.blockproject3d.profiler.network.message.component;
 
 import com.github.blockproject3d.profiler.network.message.IHeaderComponent;
 import com.github.blockproject3d.profiler.network.message.IPayloadComponent;
+import com.github.blockproject3d.profiler.network.message.IWritable;
 
-public class Option<T extends IHeaderComponent> implements IHeaderComponent, IPayloadComponent {
-    private final T msg;
+public class Option<T extends IHeaderComponent> implements IHeaderComponent, IPayloadComponent, IWritable {
+    private T msg;
     private boolean isValid = false;
 
     public Option(T msg) {
@@ -41,6 +42,11 @@ public class Option<T extends IHeaderComponent> implements IHeaderComponent, IPa
 
     public T getValue() {
         return isValid ? msg : null;
+    }
+
+    public void setValue(T value) {
+        isValid = value != null;
+        msg = value;
     }
 
     @Override
@@ -70,5 +76,16 @@ public class Option<T extends IHeaderComponent> implements IHeaderComponent, IPa
             if (isValid)
                 ((IPayloadComponent) msg).loadPayload(payload, offset);
         }
+    }
+
+    @Override
+    public int write(byte[] buffer, int offset) {
+        if (isValid)
+            buffer[offset] = 1;
+        else
+            buffer[offset] = 0;
+        if (msg != null && msg instanceof IWritable)
+            return 1 + ((IWritable) msg).write(buffer, offset + 1);
+        return 1;
     }
 }
